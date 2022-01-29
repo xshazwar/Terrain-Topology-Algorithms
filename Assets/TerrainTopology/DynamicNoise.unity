@@ -240,7 +240,7 @@ MonoBehaviour:
   per: {x: 0.1, y: 0.1}
   offset: {x: 0, y: 0}
   rot: 0
-  zoom: 0.01
+  zoom: 0.001
 --- !u!4 &447161932
 Transform:
   m_ObjectHideFlags: 0

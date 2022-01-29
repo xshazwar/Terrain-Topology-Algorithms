@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 using Unity.Collections;
 using Unity.Jobs;
@@ -20,6 +21,7 @@ public class NoiseSource : MonoBehaviour
     public float zoom;
     Texture2D texture;
     NativeArray<float> data;
+    JobHandle jobHandle;
 
     bool enabled;
 
@@ -29,21 +31,28 @@ public class NoiseSource : MonoBehaviour
     {
         texture = new Texture2D(resolution, resolution, TextureFormat.RFloat, false);
         mRenderer.material.mainTexture = texture;
-        data = texture.GetRawTextureData<float>();
-        
+        data = texture.GetRawTextureData<float>(); 
     }
 
     void GenerateTexture () {
-		MutationJob<PerlinNoiseGenerator, WriteOnlyTileData>.ScheduleParallel(data, resolution, per, rot, offset, zoom, default).Complete();
+		jobHandle = MutationJob<PerlinNoiseGenerator, WriteOnlyTileData>.ScheduleParallel(data, resolution, per, rot, offset, zoom, default);
     }
     void OnValidate () => enabled = true;
 
     // Update is called once per frame
     void Update()
     {
-		if (enabled){
-            GenerateTexture();
+		if (!jobHandle.IsCompleted){
+            jobHandle.Complete();
+            UnityEngine.Profiling.Profiler.BeginSample("Apply Texture");
             texture.Apply();
+            UnityEngine.Profiling.Profiler.EndSample();
+        }
+        
+        if (enabled && jobHandle.IsCompleted){
+            UnityEngine.Profiling.Profiler.BeginSample("Start Job");
+            GenerateTexture();
+            UnityEngine.Profiling.Profiler.EndSample();
             enabled = false;
         }
     }

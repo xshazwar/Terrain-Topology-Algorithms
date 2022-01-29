@@ -11,17 +11,16 @@ namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
 
 	[BurstCompile(FloatPrecision.Standard, FloatMode.Fast, CompileSynchronously = true)]
-	public struct MutationJob<G, S> : IJobFor
-		where G : struct, IMutateTiles, IMakeNoise
-		where S : struct, ImTileData {
+	public struct MutationJob<G, D> : IJobFor
+		where G : struct, ICreateTiles, IMakeNoise
+		where D : struct, ImTileData, ISetTileData {
 
 		G generator;
 
 		[NativeDisableContainerSafetyRestriction]
-        [WriteOnly]
-		S streams;
+		D data;
 
-		public void Execute (int i) => generator.Execute(i, streams);
+		public void Execute (int i) => generator.Execute(i, data);
 
 		public static JobHandle ScheduleParallel (
 			NativeArray<float> src, int resolution, Vector2 per, float rot, Vector2 offset, float zoom, JobHandle dependency
@@ -33,8 +32,8 @@ namespace xshazwar.processing.cpu.mutate {
             job.generator.rot = rot;
             job.generator.zoom = zoom;
             job.generator.offset = float2(offset.x, offset.y);
-			job.streams.Setup(
-				src
+			job.data.Setup(
+				src, resolution
 			);
 			return job.ScheduleParallel(
 				job.generator.JobLength, 1, dependency

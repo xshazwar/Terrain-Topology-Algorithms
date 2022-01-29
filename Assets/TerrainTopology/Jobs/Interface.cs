@@ -6,6 +6,18 @@ using static Unity.Mathematics.math;
 
 namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
+    
+    public interface ICreateTiles {
+        // total resolution including margin
+        int JobLength {get; set;}
+        int Resolution {get; set;}
+        float _terrain_width {get; set;}
+        float _terrain_height {get; set;}
+
+        float pixel_size_ws {get; set;} // => _terrain_width / Resolution;
+        void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData; 
+    }
+
     public interface IMutateTiles {
         // total resolution including margin
         int JobLength {get; set;}
@@ -14,7 +26,7 @@ namespace xshazwar.processing.cpu.mutate {
         float _terrain_height {get; set;}
 
         float pixel_size_ws {get; set;} // => _terrain_width / Resolution;
-        void Execute<T>(int i, T tile) where  T : struct, ImTileData; 
+        void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData, IGetTileData; 
     }
 
     public interface IMakeNoise {
@@ -33,8 +45,18 @@ namespace xshazwar.processing.cpu.mutate {
     }
 
     public interface ImTileData {
-        void Setup(NativeSlice<float> source);
-        void SetValue(int idx, float value);
+        void Setup(NativeArray<float> source, int resolution);
+        // public float GetData(int x, int z);
+        // void SetValue(int x, int z, float value);
+
+    }
+
+    public interface IGetTileData {
+        public float GetData(int x, int z);
+    }
+
+    public interface ISetTileData {
+        void SetValue(int x, int z, float value);
 
     }
 
