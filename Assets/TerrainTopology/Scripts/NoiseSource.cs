@@ -13,12 +13,27 @@ using xshazwar.processing.cpu.mutate;
 [RequireComponent(typeof(Texture2D))]
 public class NoiseSource : MonoBehaviour
 {
+    
+    static CreationJobScheduleDelegate[] jobs = {
+		CreationJob<CellNoiseGenerator, WriteOnlyTileData>.ScheduleParallel,
+		CreationJob<TilingSimplexNoiseGenerator, WriteOnlyTileData>.ScheduleParallel,
+        CreationJob<PeriodicPerlinNoiseGenerator, WriteOnlyTileData>.ScheduleParallel  
+	};
+    public enum NoiseType {
+		Cellular,
+        TilingSimplex,
+        PeriodicPerlin
+	};
+
+    public NoiseType noiseType;
     public Renderer mRenderer;
     public int resolution;
-    public Vector2 per;
-    public Vector2 offset;
+    public int tileSize;
+    public Vector2Int per;
+    public Vector2Int offset;
     public float rot;
     public float zoom;
+
     Texture2D texture;
     NativeArray<float> data;
     JobHandle jobHandle;
@@ -35,7 +50,8 @@ public class NoiseSource : MonoBehaviour
     }
 
     void GenerateTexture () {
-		jobHandle = MutationJob<PerlinNoiseGenerator, WriteOnlyTileData>.ScheduleParallel(data, resolution, per, rot, offset, zoom, default);
+		jobHandle = jobs[(int) noiseType](
+            data, resolution, tileSize, (Vector2) per, rot, (Vector2) offset, zoom, default);
     }
     void OnValidate () => enabled = true;
 

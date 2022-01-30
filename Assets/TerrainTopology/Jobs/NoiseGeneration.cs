@@ -10,7 +10,7 @@ using static Unity.Mathematics.math;
 
 namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
-    public struct PerlinNoiseGenerator: ICreateTiles, IMakeNoise {
+    public struct TilingSimplexNoiseGenerator: ICreateTiles, IMakeNoise {
 
         public int Resolution {get; set;}
         public int JobLength {get; set;}
@@ -21,18 +21,76 @@ namespace xshazwar.processing.cpu.mutate {
         public float2 per {get; set;}
         public float rot {get; set;}
         public float pixel_size_ws {get; set;}
+        private float scaleFactor =>  (_terrain_width / 10000) * (1 / zoom);
         public void Execute<T>(int z, T tile) where  T : struct, ImTileData, ISetTileData {
-            int max = Resolution;
-            float2 coord = float2(0, z);
-            for( int x = 0; x < max; x++){
-                coord.x = x;
-                tile.SetValue(x, z, GetNoiseValue(coord));
+            for( int x = 0; x < Resolution; x++){
+                tile.SetValue(x, z, GetNoiseValue(x, z));
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetNoiseValue(float2 coord){
-            return noise.psrnoise((coord * zoom) + offset, per, rot);
+        public float GetNoiseValue(int x, int z){
+            float2 coord = float2(x, z);
+            float2 normCoord = (coord * scaleFactor) + offset;
+            // 2-D tiling simplex noise with rotating gradients
+            // but without the analytical derivative.
+            return noise.psrnoise(normCoord, per, rot);
+        }
+    }
+
+    public struct CellNoiseGenerator: ICreateTiles, IMakeNoise {
+
+        public int Resolution {get; set;}
+        public int JobLength {get; set;}
+        public float _terrain_width {get; set;}
+        public float _terrain_height {get; set;}
+        public float zoom {get; set;}
+        public float2 offset {get; set;}
+        // NON-OP
+        public float2 per {get; set;}
+        // NON-OP
+        public float rot {get; set;}
+        public float pixel_size_ws {get; set;}
+        private float scaleFactor =>  (_terrain_width / 10000) * (1 / zoom);
+        public void Execute<T>(int z, T tile) where  T : struct, ImTileData, ISetTileData {
+            for( int x = 0; x < Resolution; x++){
+                tile.SetValue(x, z, GetNoiseValue(x, z));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetNoiseValue(int x, int z){
+            float2 coord = float2(x, z);
+            float2 normCoord = (coord * scaleFactor) + offset;
+            return noise.cnoise(normCoord);
+        }
+    }
+
+    public struct PeriodicPerlinNoiseGenerator: ICreateTiles, IMakeNoise {
+
+        public int Resolution {get; set;}
+        public int JobLength {get; set;}
+        public float _terrain_width {get; set;}
+        public float _terrain_height {get; set;}
+        public float zoom {get; set;}
+        public float2 offset {get; set;}
+        // NON-OP
+        public float2 per {get; set;}
+        // NON-OP
+        public float rot {get; set;}
+        public float pixel_size_ws {get; set;}
+        private float scaleFactor =>  (_terrain_width / 10000) * (1 / zoom);
+        public void Execute<T>(int z, T tile) where  T : struct, ImTileData, ISetTileData {
+            for( int x = 0; x < Resolution; x++){
+                tile.SetValue(x, z, GetNoiseValue(x, z));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetNoiseValue(int x, int z){
+            float2 coord = float2(x, z);
+            float2 normCoord = (coord * scaleFactor) + offset;
+            return noise.pnoise(normCoord, per);
         }
     }
 

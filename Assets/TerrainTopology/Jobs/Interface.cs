@@ -34,7 +34,7 @@ namespace xshazwar.processing.cpu.mutate {
         public float2 offset {get; set;}
         float2 per {get; set;}
         float rot {get; set;}
-        float GetNoiseValue(float2 coord);
+        float GetNoiseValue(int x, int z);
     }
 
     public interface IKernelTiles: IMutateTiles {
