@@ -14,15 +14,15 @@ using xshazwar.processing.cpu.mutate;
 public class NoiseSource : MonoBehaviour
 {
     
-    static CreationJobScheduleDelegate[] jobs = {
-		CreationJob<CellNoiseGenerator, WriteOnlyTileData>.ScheduleParallel,
-		CreationJob<TilingSimplexNoiseGenerator, WriteOnlyTileData>.ScheduleParallel,
-        CreationJob<PeriodicPerlinNoiseGenerator, WriteOnlyTileData>.ScheduleParallel  
-	};
     public enum NoiseType {
 		Cellular,
         TilingSimplex,
         PeriodicPerlin
+	};
+    static CreationJobScheduleDelegate[] jobs = {
+		CreationJob<CellNoiseGenerator, WriteOnlyTileData>.ScheduleParallel,
+		CreationJob<TilingSimplexNoiseGenerator, WriteOnlyTileData>.ScheduleParallel,
+        CreationJob<PeriodicPerlinNoiseGenerator, WriteOnlyTileData>.ScheduleParallel  
 	};
 
     public NoiseType noiseType;

@@ -24,8 +24,9 @@ namespace xshazwar.processing.cpu.mutate {
         int Resolution {get; set;}
         float _terrain_width {get; set;}
         float _terrain_height {get; set;}
+        public float2 offset {get; set;}
 
-        float pixel_size_ws {get; set;} // => _terrain_width / Resolution;
+        float pixel_size_ws {get; set;}
         void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData, IGetTileData; 
     }
 

@@ -10,10 +10,10 @@ using static Unity.Mathematics.math;
 namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
 
-	[BurstCompile(FloatPrecision.Standard, FloatMode.Fast, CompileSynchronously = true)]
+	[BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
 	public struct MutationJob<G, D> : IJobFor
-		where G : struct, ICreateTiles, IMakeNoise
-		where D : struct, ImTileData, ISetTileData {
+		where G : struct, IMutateTiles
+		where D : struct, ImTileData, IGetTileData, ISetTileData {
 
 		G generator;
 
@@ -28,9 +28,6 @@ namespace xshazwar.processing.cpu.mutate {
 			var job = new MutationJob<G, D>();
 			job.generator.Resolution = resolution;
             job.generator.JobLength = resolution;
-            job.generator.per = float2(per.x, per.y);
-            job.generator.rot = rot;
-            job.generator.zoom = zoom;
             job.generator.offset = float2(offset.x, offset.y);
 			job.data.Setup(
 				src, resolution

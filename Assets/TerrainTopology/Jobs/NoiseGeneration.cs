@@ -21,7 +21,6 @@ namespace xshazwar.processing.cpu.mutate {
         public float2 per {get; set;}
         public float rot {get; set;}
         public float pixel_size_ws {get; set;}
-        private float scaleFactor =>  (_terrain_width / 10000) * (1 / zoom);
         public void Execute<T>(int z, T tile) where  T : struct, ImTileData, ISetTileData {
             for( int x = 0; x < Resolution; x++){
                 tile.SetValue(x, z, GetNoiseValue(x, z));
@@ -31,7 +30,7 @@ namespace xshazwar.processing.cpu.mutate {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetNoiseValue(int x, int z){
             float2 coord = float2(x, z);
-            float2 normCoord = (coord * scaleFactor) + offset;
+            float2 normCoord = ((coord/ Resolution * _terrain_width) + (offset * _terrain_width)) / zoom;
             // 2-D tiling simplex noise with rotating gradients
             // but without the analytical derivative.
             return noise.psrnoise(normCoord, per, rot);
@@ -51,7 +50,6 @@ namespace xshazwar.processing.cpu.mutate {
         // NON-OP
         public float rot {get; set;}
         public float pixel_size_ws {get; set;}
-        private float scaleFactor =>  (_terrain_width / 10000) * (1 / zoom);
         public void Execute<T>(int z, T tile) where  T : struct, ImTileData, ISetTileData {
             for( int x = 0; x < Resolution; x++){
                 tile.SetValue(x, z, GetNoiseValue(x, z));
@@ -61,7 +59,7 @@ namespace xshazwar.processing.cpu.mutate {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetNoiseValue(int x, int z){
             float2 coord = float2(x, z);
-            float2 normCoord = (coord * scaleFactor) + offset;
+            float2 normCoord = ((coord/ Resolution * _terrain_width) + (offset * _terrain_width)) / zoom;
             return noise.cnoise(normCoord);
         }
     }
@@ -79,7 +77,6 @@ namespace xshazwar.processing.cpu.mutate {
         // NON-OP
         public float rot {get; set;}
         public float pixel_size_ws {get; set;}
-        private float scaleFactor =>  (_terrain_width / 10000) * (1 / zoom);
         public void Execute<T>(int z, T tile) where  T : struct, ImTileData, ISetTileData {
             for( int x = 0; x < Resolution; x++){
                 tile.SetValue(x, z, GetNoiseValue(x, z));
@@ -89,7 +86,7 @@ namespace xshazwar.processing.cpu.mutate {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetNoiseValue(int x, int z){
             float2 coord = float2(x, z);
-            float2 normCoord = (coord * scaleFactor) + offset;
+            float2 normCoord = ((coord/ Resolution * _terrain_width) + (offset * _terrain_width)) / zoom;
             return noise.pnoise(normCoord, per);
         }
     }
@@ -134,9 +131,6 @@ namespace xshazwar.processing.cpu.mutate {
 
     public struct WriteOnlyTileData: ImTileData, ISetTileData{
 
-        [ReadOnly]
-        NativeArray<float> src;
-
         [NativeDisableContainerSafetyRestriction]
         [WriteOnly]
         NativeArray<float> dst;
@@ -150,9 +144,7 @@ namespace xshazwar.processing.cpu.mutate {
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int getIdx(int x, int z){
-            // overflows safely
-            x = clamp(x, 0, resolution - 1);
-            z = clamp(z, 0, resolution - 1);
+            // shouldn't need to overflow at all
             return (z * (resolution - 1)) + x;
             
         }
