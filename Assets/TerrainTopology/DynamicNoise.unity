@@ -236,14 +236,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db7a91a62691d8bb282997d126374e26, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  noiseType: 0
+  noiseType: 1
   mRenderer: {fileID: 583384802}
-  resolution: 512
+  resolution: 1024
   tileSize: 1000
   per: {x: 100, y: 100}
   offset: {x: 1, y: 1}
   rot: 1
   zoom: 155.8
+  enabled: 1
 --- !u!4 &447161932
 Transform:
   m_ObjectHideFlags: 0
@@ -271,7 +272,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   filter: 0
-  iterations: 4
+  iterations: 1
   enabled: 0
 --- !u!1 &583384800
 GameObject:

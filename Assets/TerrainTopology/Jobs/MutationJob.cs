@@ -17,6 +17,7 @@ namespace xshazwar.processing.cpu.mutate {
 
 		G generator;
 
+		[NativeDisableParallelForRestriction]
 		[NativeDisableContainerSafetyRestriction]
 		D data;
 

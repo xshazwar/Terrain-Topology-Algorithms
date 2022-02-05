@@ -105,8 +105,7 @@ namespace xshazwar.processing.cpu.mutate {
         int resolution;
 
         public void Setup(NativeArray<float> source, int resolution_){
-            src = new NativeArray<float>(source.Length, Allocator.TempJob);
-            NativeArray<float>.Copy(source, src);
+            src = new NativeArray<float>(source, Allocator.TempJob);
             dst = source;
             resolution = resolution_;
         }
@@ -116,8 +115,7 @@ namespace xshazwar.processing.cpu.mutate {
             // overflows safely
             x = clamp(x, 0, resolution - 1);
             z = clamp(z, 0, resolution - 1);
-            return (z * (resolution - 1)) + x;
-            
+            return (z * (resolution - 1)) + x;   
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -133,6 +131,7 @@ namespace xshazwar.processing.cpu.mutate {
 
     public struct WriteOnlyTileData: ImTileData, ISetTileData{
 
+        [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
         [WriteOnly]
         NativeArray<float> dst;
@@ -155,5 +154,34 @@ namespace xshazwar.processing.cpu.mutate {
         public void SetValue(int x, int z, float value){
             dst[getIdx(x,z)] = value;
         }
+    }
+
+    public struct ReadOnlyTileData: ImTileData, IGetTileData{
+
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
+        [ReadOnly]
+        NativeArray<float> src;
+        int resolution;
+
+        public void Setup(NativeArray<float> source, int resolution_){
+            src = source;
+            resolution = resolution_;
+
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int getIdx(int x, int z){
+            // overflows safely
+            x = clamp(x, 0, resolution - 1);
+            z = clamp(z, 0, resolution - 1);
+            return (z * (resolution - 1)) + x;   
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetData(int x, int z){
+            return src[getIdx(x,z)];
+        }
+
     }
 }

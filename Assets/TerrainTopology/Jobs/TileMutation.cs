@@ -86,8 +86,8 @@ namespace xshazwar.processing.cpu.mutate {
             tile.SetValue(x, z, total * KernelFactor);
         }
 
-        public void Execute<T>(int z, T tile) where  T : struct, ImTileData, IGetTileData, ISetTileData {
-            for( int x = 0; x < Resolution; x++){
+        public void Execute<T>(int x, T tile) where  T : struct, ImTileData, IGetTileData, ISetTileData {
+            for( int z = 0; z < Resolution; z++){
                 ApplyKernel<T>(x, z, tile);
             }
         }

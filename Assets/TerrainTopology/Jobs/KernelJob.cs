@@ -65,8 +65,10 @@ namespace xshazwar.processing.cpu.mutate {
         public static float[] smooth3 = {1f, 1f, 1f};
 
         public static float sobel3Factor =  1f;
-        public static float[] sobel3_A = {1f, 0f, -1f};
-        public static float[] sobel3_B = {1f, 2f, 1f};
+        public static float[] sobel3_HX = {-1f, 0f, 1f};
+        public static float[] sobel3_HY = {1f, 2f, 1f};
+         public static float[] sobel3_VY = {-1f, 0f, 1f};
+        public static float[] sobel3_VX = {1f, 2f, 1f};
         private static JobHandle Schedule(
             NativeArray<float> src,
             int resolution,
@@ -76,11 +78,16 @@ namespace xshazwar.processing.cpu.mutate {
             float kernelFactor,
             JobHandle dependency
         ){
-            JobHandle firstPass = SeperableKernelPassJob<XSeparableKernelTileMutation, RWTileData>.ScheduleParallel(
+            NativeArray<float> original = new NativeArray<float>(src, Allocator.TempJob);
+            JobHandle xPass = SeperableKernelPassJob<XSeparableKernelTileMutation, RWTileData>.ScheduleParallel(
                 src, resolution, kernelSize, kernelX, kernelFactor, dependency
             );
-            return SeperableKernelPassJob<ZSeparableKernelTileMutation, RWTileData>.ScheduleParallel(
-                src, resolution, kernelSize, kernelZ, kernelFactor, firstPass
+            JobHandle zPass = SeperableKernelPassJob<ZSeparableKernelTileMutation, RWTileData>.ScheduleParallel(
+                original, resolution, kernelSize, kernelZ, kernelFactor, dependency
+            );
+            JobHandle allPass = JobHandle.CombineDependencies(xPass, zPass);
+            return ReductionJob<MultiplyTiles, RWTileData, ReadOnlyTileData>.ScheduleParallel(
+                src, original, resolution, allPass
             );
         }
 
@@ -91,6 +98,8 @@ namespace xshazwar.processing.cpu.mutate {
             int kernelSize = 3;
 
             switch(filter){
+                case KernelFilterType.Smooth3:
+                    break;
                 case KernelFilterType.Gauss5:
                     kernelBodyX = gauss5;
                     kernelBodyY = gauss5;
@@ -101,23 +110,15 @@ namespace xshazwar.processing.cpu.mutate {
                     kernelBodyX = gauss3;
                     kernelBodyY = gauss3;
                     kernelFactor = gauss3Factor;
-                    kernelSize = 3;
                     break;;
-                case KernelFilterType.Smooth3:
-                    kernelBodyX = smooth3;
-                    kernelBodyY = smooth3;
-                    kernelFactor = smooth3Factor;
-                    kernelSize = 3;
-                    break;
                 case KernelFilterType.Sobel3Horizontal:
-                    kernelBodyX = sobel3_A;
-                    kernelBodyY = sobel3_B;
+                    kernelBodyX = sobel3_HX;
+                    kernelBodyY = sobel3_HY;
                     kernelFactor = sobel3Factor;;
-                    kernelSize = 3;
                     break;
                 case KernelFilterType.Sobel3Vertical:
-                    kernelBodyX = sobel3_B;
-                    kernelBodyY = sobel3_A;
+                    kernelBodyX = sobel3_VX;
+                    kernelBodyY = sobel3_VY;
                     kernelFactor = sobel3Factor;
                     break;           
             }
