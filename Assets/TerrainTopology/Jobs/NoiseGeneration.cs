@@ -93,20 +93,22 @@ namespace xshazwar.processing.cpu.mutate {
 
     public struct RWTileData: ImTileData, IGetTileData, ISetTileData{
 
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
         [ReadOnly]
         NativeArray<float> src;
 
+        [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
         [WriteOnly]
         NativeArray<float> dst;
         int resolution;
 
         public void Setup(NativeArray<float> source, int resolution_){
-            src = new NativeArray<float>(source.Length, Allocator.Temp);
+            src = new NativeArray<float>(source.Length, Allocator.TempJob);
             NativeArray<float>.Copy(source, src);
             dst = source;
             resolution = resolution_;
-
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

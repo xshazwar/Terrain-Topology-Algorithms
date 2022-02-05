@@ -28,7 +28,6 @@ namespace xshazwar.processing.cpu.mutate {
 			var job = new MutationJob<G, D>();
 			job.generator.Resolution = resolution;
             job.generator.JobLength = resolution;
-            job.generator.offset = float2(offset.x, offset.y);
 			job.data.Setup(
 				src, resolution
 			);

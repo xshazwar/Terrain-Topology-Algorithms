@@ -22,11 +22,6 @@ namespace xshazwar.processing.cpu.mutate {
         // total resolution including margin
         int JobLength {get; set;}
         int Resolution {get; set;}
-        float _terrain_width {get; set;}
-        float _terrain_height {get; set;}
-        public float2 offset {get; set;}
-
-        float pixel_size_ws {get; set;}
         void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData, IGetTileData; 
     }
 
@@ -39,11 +34,13 @@ namespace xshazwar.processing.cpu.mutate {
     }
 
     public interface IKernelTiles: IMutateTiles {
+        float KernelFactor {get; set;}
         int KernelSize {get; set;}
-        bool Separable {get; set;}
-        int passDirection {get; set;}
-        float[] Kernel {get; set;}
+        NativeArray<float> Kernel {get; set;}
     }
+
+    public interface ISeparableKernel: IKernelTiles{}
+    public interface IFixedKernel: IKernelTiles{}
 
     public interface ImTileData {
         void Setup(NativeArray<float> source, int resolution);

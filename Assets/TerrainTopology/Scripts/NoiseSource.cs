@@ -11,7 +11,7 @@ using xshazwar.processing.cpu.mutate;
 [RequireComponent(typeof(Renderer))]
 [RequireComponent(typeof(RenderTexture))]
 [RequireComponent(typeof(Texture2D))]
-public class NoiseSource : MonoBehaviour
+public class NoiseSource : MonoBehaviour, IProvideTiles, IUpdateImage
 {
     
     public enum NoiseType {
@@ -38,7 +38,8 @@ public class NoiseSource : MonoBehaviour
     NativeArray<float> data;
     JobHandle jobHandle;
 
-    bool enabled;
+    public bool enabled;
+    bool triggered;
 
 
     // Start is called before the first frame update
@@ -58,18 +59,39 @@ public class NoiseSource : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-		if (!jobHandle.IsCompleted){
+		if (triggered){
+            if (!jobHandle.IsCompleted){
+                Debug.Log("Generator Working");
+                return;
+            }
             jobHandle.Complete();
             UnityEngine.Profiling.Profiler.BeginSample("Apply Texture");
-            texture.Apply();
+            UpdateImage();
             UnityEngine.Profiling.Profiler.EndSample();
+            Debug.Log("Generator Complete");
+            triggered = false;
         }
         
-        if (enabled && jobHandle.IsCompleted){
+        if (enabled && !triggered){
             UnityEngine.Profiling.Profiler.BeginSample("Start Job");
+            triggered = true;
             GenerateTexture();
             UnityEngine.Profiling.Profiler.EndSample();
             enabled = false;
         }
+    }
+
+    public void GetData(out NativeArray<float> d, out int res, out int ts){
+        d = this.data;
+        res = resolution;
+        ts = tileSize;
+    }
+
+    public void UpdateImage(){
+        texture.Apply();
+    }
+
+    public void OnDestroy(){
+        data.Dispose();
     }
 }
