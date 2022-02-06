@@ -22,7 +22,9 @@ namespace xshazwar.processing.cpu.mutate {
 
         int JobLength {get; set;}
         int Resolution {get; set;}
-        void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData; 
+
+        void SetPosition(int x, int z);
+        void Execute<T>(int i, T tile) where  T : struct, ImSliceTileData, ISetTileData; 
     }
 
     public interface IMakeNoise {
@@ -78,7 +80,12 @@ namespace xshazwar.processing.cpu.mutate {
         void Setup(NativeArray<float> source, int resolution);
         // public float GetData(int x, int z);
         // void SetValue(int x, int z, float value);
+    }
 
+    public interface ImSliceTileData {
+        void Setup(NativeSlice<float> source, int resolution);
+        // public float GetData(int x, int z);
+        // void SetValue(int x, int z, float value);
     }
 
     public interface IGetTileData {

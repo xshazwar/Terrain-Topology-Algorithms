@@ -118,7 +118,7 @@ namespace xshazwar.processing.cpu.mutate {
             // overflows safely
             x = clamp(x, 0, resolution - 1);
             z = clamp(z, 0, resolution - 1);
-            return (z * (resolution - 1)) + x;   
+            return (z * resolution) + x;   
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -149,7 +149,7 @@ namespace xshazwar.processing.cpu.mutate {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int getIdx(int x, int z){
             // shouldn't need to overflow at all
-            return (z * (resolution - 1)) + x;
+            return (z * resolution) + x;
             
         }
 
@@ -178,7 +178,7 @@ namespace xshazwar.processing.cpu.mutate {
             // overflows safely
             x = clamp(x, 0, resolution - 1);
             z = clamp(z, 0, resolution - 1);
-            return (z * (resolution - 1)) + x;   
+            return (z * resolution) + x;   
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -186,5 +186,30 @@ namespace xshazwar.processing.cpu.mutate {
             return src[getIdx(x,z)];
         }
 
+    }
+    public struct WriteTileData: ImSliceTileData, ISetTileData{
+
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
+        [WriteOnly]
+        NativeSlice<float> dst;
+        int resolution;
+
+        public void Setup(NativeSlice<float> source, int resolution_){
+            dst = source;
+            resolution = resolution_;
+
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int getIdx(int x, int z){
+            // shouldn't need to overflow at all
+            return (z * (resolution)) + x;  
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetValue(int x, int z, float value){
+            dst[getIdx(x,z)] = value;
+        }
     }
 }

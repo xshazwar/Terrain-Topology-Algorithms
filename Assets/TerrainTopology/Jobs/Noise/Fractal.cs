@@ -17,7 +17,7 @@ namespace xshazwar.processing.cpu.mutate {
 	public struct FractalJob<G, N, D> : IJobFor
         where G: struct, ITileSource, IFractalSettings
         where N: struct, IMakeNoiseCoord
-        where D : struct, ImTileData, IGetTileData, ISetTileData
+        where D : struct, ImSliceTileData, ISetTileData
         {
 	
         N noiseGenerator;
@@ -32,16 +32,21 @@ namespace xshazwar.processing.cpu.mutate {
             noiseGenerator = ng;
         }
 		public static JobHandle ScheduleParallel (
-			NativeArray<float> src,
+			NativeSlice<float> src,
             int resolution,
+            float hurst,
+            int octaves,
+            int xpos,
+            int zpos,
             JobHandle dependency
 		)
         {
 			var job = new FractalJob<G, N, D>();
 			job.generator.Resolution = resolution;
             job.generator.JobLength = resolution;
-            job.generator.Hurst = 1;
-            job.generator.OctaveCount = 5;
+            job.generator.Hurst = hurst;
+            job.generator.SetPosition(xpos, zpos);
+            job.generator.OctaveCount = octaves;
 			job.data.Setup(
 				src, resolution
 			);
@@ -52,8 +57,12 @@ namespace xshazwar.processing.cpu.mutate {
 	}
 
     public delegate JobHandle FractalJobDelegate (
-        NativeArray<float> src,
+        NativeSlice<float> src,
         int resolution,
+        float hurst,
+        int octaves,
+        int xpos,
+        int zpos,
         JobHandle dependency
 	);
 
@@ -66,7 +75,13 @@ namespace xshazwar.processing.cpu.mutate {
         // [0, 1]
         public float Hurst {get; set;}
         public int OctaveCount {get; set;}
+        float2 Position;
         public N noiseGenerator;
+
+        public void SetPosition(int x, int z){
+            Position.x = (float) x;
+            Position.y = (float) z;
+        }
 
         float NoiseValue(int x, int z){
             float G = math.exp2(-Hurst);
@@ -74,7 +89,9 @@ namespace xshazwar.processing.cpu.mutate {
             float a = 1;
             float t = 0;
             for (int i = 0; i < OctaveCount; i++){
-                t += a * noiseGenerator.NoiseValue(f * (float) x, f * (float) z);
+                float xV = f * (float) x + Position.x;
+                float zV = f * (float) z + Position.y;
+                t += a * noiseGenerator.NoiseValue(xV, zV);
                 f *= 2;
                 a *= G;
             }
@@ -82,7 +99,7 @@ namespace xshazwar.processing.cpu.mutate {
         }
 
         
-        public void Execute<T>(int z, T tile) where  T : struct, ImTileData, ISetTileData {
+        public void Execute<T>(int z, T tile) where  T : struct, ImSliceTileData, ISetTileData {
             for( int x = 0; x < Resolution; x++){
                 tile.SetValue(x, z, NoiseValue(x, z));
             }
@@ -91,8 +108,13 @@ namespace xshazwar.processing.cpu.mutate {
 
     public struct PerlinGetter: IMakeNoiseCoord {
         public float NoiseValue(float x, float z){
-            float2 coord = float2(x, z);
-            return math.unlerp(-1, 1,  noise.pnoise(coord, 100));
+            
+            // float2 period = float2(100000, 100000);
+            float2 coord = float2(x, z) ;
+            // return noise.pnoise(coord, period);
+            // return noise.cnoise(coord);
+            return noise.cnoise(coord / 1000);
+            // return math.unlerp(-1, 1,  noise.cnoise(coord));
         }
     }
 

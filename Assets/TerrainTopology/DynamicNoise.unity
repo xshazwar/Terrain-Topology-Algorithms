@@ -216,7 +216,6 @@ GameObject:
   m_Component:
   - component: {fileID: 447161932}
   - component: {fileID: 447161931}
-  - component: {fileID: 447161933}
   m_Layer: 0
   m_Name: Renderer
   m_TagString: Untagged
@@ -233,17 +232,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 447161930}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: db7a91a62691d8bb282997d126374e26, type: 3}
+  m_Script: {fileID: 11500000, guid: 47a9a8780fcc21cee83a1321f0d2ac50, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  noiseType: 1
   mRenderer: {fileID: 583384802}
   resolution: 1024
-  tileSize: 1000
-  per: {x: 100, y: 100}
-  offset: {x: 1, y: 1}
-  rot: 1
-  zoom: 155.8
+  hurst: 0
+  octaves: 1
+  xpos: 0
+  zpos: 0
   enabled: 1
 --- !u!4 &447161932
 Transform:
@@ -259,21 +256,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &447161933
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 447161930}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 82be2d07c3cd771b988e9150088d69a2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  filter: 0
-  iterations: 1
-  enabled: 0
 --- !u!1 &583384800
 GameObject:
   m_ObjectHideFlags: 0
