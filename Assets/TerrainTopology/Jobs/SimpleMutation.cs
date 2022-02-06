@@ -33,4 +33,29 @@ namespace xshazwar.processing.cpu.mutate {
             }
         }
     }
+
+    public struct RootSumSquaresTiles: IReduceTiles{
+        public int JobLength {get; set;}
+        public int Resolution {get; set;}
+        // tile A is left side, B is right
+        // result put onto A
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void DoOp<T, V>(int x, int z, T tileA, V tileB)
+                where T : struct, ImTileData, ISetTileData, IGetTileData
+                where V : struct, ImTileData, IGetTileData {
+            float a = tileA.GetData(x, z);
+            float b = tileB.GetData(x, z);
+            float val = sqrt((a * a) + (b * b));
+            tileA.SetValue(x, z, val);
+        }
+
+        public void Execute<T, V>(int z, T tileA, V tileB)
+                where  T : struct, ImTileData, ISetTileData, IGetTileData
+                where V: struct, ImTileData, IGetTileData{
+            for( int x = 0; x < Resolution; x++){
+                DoOp<T, V>(x, z, tileA, tileB);
+            }
+        }
+    }
 }

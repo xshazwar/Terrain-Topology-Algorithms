@@ -18,12 +18,28 @@ namespace xshazwar.processing.cpu.mutate {
         void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData; 
     }
 
+    public interface ITileSource {
+
+        int JobLength {get; set;}
+        int Resolution {get; set;}
+        void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData; 
+    }
+
     public interface IMakeNoise {
         public float zoom {get; set;}
         public float2 offset {get; set;}
         float2 per {get; set;}
         float rot {get; set;}
         float GetNoiseValue(int x, int z);
+    }
+
+    public interface IFractalSettings {
+        public float Hurst {get; set;}
+        public int OctaveCount {get; set;}
+    }
+
+    public interface IMakeNoiseCoord {
+        float NoiseValue(float x, float z);
     }
 
     public interface IMutateTiles {
@@ -44,16 +60,20 @@ namespace xshazwar.processing.cpu.mutate {
                 where V: struct, ImTileData, IGetTileData; 
     }
 
-    public interface IKernelTiles: IMutateTiles {
-        float KernelFactor {get; set;}
-        int KernelSize {get; set;}
-        NativeArray<float> Kernel {get; set;}
+    public interface IKernelTiles<T>: IMutateTiles 
+        where T : struct, IKernelOperator
+        {
+        T kernelOp {get; set;}
+    }
+
+    public interface IKernelData {
+        public void Setup(float kernelFactor, int kernelSize, NativeArray<float> kernel);
+    }
+    
+    public interface IKernelOperator {
+        public void ApplyKernel<T>(int x, int z, T tile) where  T : struct, ImTileData, IGetTileData, ISetTileData;
     }
     public interface IMathTiles : IMutateTiles {}
-
-    public interface ISeparableKernel: IKernelTiles{}
-    public interface IFixedKernel: IKernelTiles{}
-
     public interface ImTileData {
         void Setup(NativeArray<float> source, int resolution);
         // public float GetData(int x, int z);

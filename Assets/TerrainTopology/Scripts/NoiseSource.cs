@@ -27,6 +27,8 @@ public class NoiseSource : MonoBehaviour, IProvideTiles, IUpdateImage
 
     public NoiseType noiseType;
     public Renderer mRenderer;
+
+    public RenderTexture renderTexture;
     public int resolution;
     public int tileSize;
     public Vector2Int per;
@@ -47,7 +49,9 @@ public class NoiseSource : MonoBehaviour, IProvideTiles, IUpdateImage
     {
         texture = new Texture2D(resolution, resolution, TextureFormat.RFloat, false);
         mRenderer.material.mainTexture = texture;
-        data = texture.GetRawTextureData<float>(); 
+        data = texture.GetRawTextureData<float>();
+        Debug.Log($"{data.Length} ==? {resolution * resolution}");
+        // renderTexture = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.RFloat);
     }
 
     void GenerateTexture () {
@@ -89,6 +93,7 @@ public class NoiseSource : MonoBehaviour, IProvideTiles, IUpdateImage
 
     public void UpdateImage(){
         texture.Apply();
+        // Graphics.CopyTexture(texture, renderTexture);
     }
 
     public void OnDestroy(){

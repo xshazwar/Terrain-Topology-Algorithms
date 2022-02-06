@@ -85,9 +85,12 @@ namespace xshazwar.processing.cpu.mutate {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetNoiseValue(int x, int z){
+            float2 period = float2(Resolution / zoom, Resolution / zoom);
             float2 coord = float2(x, z);
-            float2 normCoord = ((coord/ Resolution * _terrain_width) + (offset * _terrain_width)) / zoom;
-            return noise.pnoise(normCoord, per);
+            // float2 normCoord = ((coord/ Resolution * _terrain_width) + (offset * _terrain_width)) / zoom;
+            
+            return math.unlerp(-1, 1,  noise.pnoise(coord/ zoom, period));
+            // return math.unlerp(-1, 1, noise.cnoise(coord));
         }
     }
 
