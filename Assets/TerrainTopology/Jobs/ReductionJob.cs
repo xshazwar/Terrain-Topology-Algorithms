@@ -13,7 +13,7 @@ namespace xshazwar.processing.cpu.mutate {
 	[BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
 	public struct ReductionJob<G, DL, DR> : IJobFor
 		where G : struct, IReduceTiles
-		where DL : struct, ImTileData, IGetTileData, ISetTileData
+		where DL : struct, IRWTile
         where DR : struct, ImTileData, IGetTileData {
 
 		G generator;
@@ -29,12 +29,11 @@ namespace xshazwar.processing.cpu.mutate {
 		public void Execute (int i) => generator.Execute(i, dataL, dataR);
 
 		public static JobHandle ScheduleParallel (
-			NativeArray<float> srcL, //receives output
-            NativeArray<float> srcR,
+			NativeSlice<float> srcL, //receives output
+            NativeSlice<float> srcR,
             int resolution,
             JobHandle dependency
 		) {
-            Debug.Log($"{srcL.Length == srcR.Length && srcR.Length == (resolution * resolution)}");
 			var job = new ReductionJob<G, DL, DR>();
 			job.generator.Resolution = resolution;
             job.generator.JobLength = resolution;
@@ -44,15 +43,16 @@ namespace xshazwar.processing.cpu.mutate {
             job.dataR.Setup(
 				srcR, resolution
 			);
-			return job.ScheduleParallel(
+			JobHandle handle = job.ScheduleParallel(
 				job.generator.JobLength, 1, dependency
 			);
+			return job.dataL.Dispose(handle);
 		}
 	}
 
 	public delegate JobHandle ReductionJobScheduleDelegate (
-        NativeArray<float> srcL, //receives output
-        NativeArray<float> srcR,
+        NativeSlice<float> srcL, //receives output
+        NativeSlice<float> srcR,
         int resolution,
         JobHandle dependency
 	);

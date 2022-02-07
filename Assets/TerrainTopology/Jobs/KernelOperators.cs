@@ -25,7 +25,7 @@ namespace xshazwar.processing.cpu.mutate {
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ApplyKernel<T>(int x, int z, T tile) where  T : struct, ImTileData, IGetTileData, ISetTileData{
+        public void ApplyKernel<T>(int x, int z, T tile) where  T : struct, IRWTile{
             
             int k_off = (KernelSize - 1) / 2;
             float total = 0;
@@ -51,7 +51,7 @@ namespace xshazwar.processing.cpu.mutate {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ApplyKernel<T>(int x, int z, T tile) where  T : struct, ImTileData, IGetTileData, ISetTileData{
+        public void ApplyKernel<T>(int x, int z, T tile) where  T : struct, IRWTile{
             int k_off = (KernelSize - 1) / 2;
             float total = 0;
             for (int k = -k_off; k < k_off; k++){

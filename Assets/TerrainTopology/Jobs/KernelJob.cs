@@ -11,23 +11,21 @@ namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
 
 	[BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
-	public struct GenericKernelJob<K, D, O> : IJobFor
-        where K : struct, IKernelTiles<O>
-		where D : struct, ImTileData, IGetTileData, ISetTileData
-        where O : struct, IKernelOperator, IKernelData
+	public struct GenericKernelJob<K, D> : IJobFor
+        where K : struct, IMutateTiles, IKernelData
+		where D : struct, IRWTile
         {
 
 		K kernelPass;
-        O kernelOp;
 	
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
 		D data;
 
-		public void Execute (int i) => kernelPass.Execute(i, data);
+		public void Execute (int i) => kernelPass.Execute<D>(i, data);
 
 		public static JobHandle ScheduleParallel (
-			NativeArray<float> src,
+			NativeSlice<float> src,
             int resolution,
             int kernelSize,
             NativeArray<float> kernelBody,
@@ -35,17 +33,18 @@ namespace xshazwar.processing.cpu.mutate {
             JobHandle dependency
 		)
         {
-			var job = new GenericKernelJob<K, D, O>();
+			var job = new GenericKernelJob<K, D>();
 			job.kernelPass.Resolution = resolution;
             job.kernelPass.JobLength = resolution;
-            job.kernelOp.Setup(kernelFactor, kernelSize, kernelBody);
-            job.kernelPass.kernelOp = job.kernelOp;
+            job.kernelPass.Setup(kernelFactor, kernelSize, kernelBody);
 			job.data.Setup(
 				src, resolution
 			);
-			return job.ScheduleParallel(
-				job.kernelPass.JobLength, 1, dependency
+			JobHandle handle = job.ScheduleParallel(
+				job.kernelPass.JobLength, 32, dependency
 			);
+            return job.data.Dispose(handle);
+
 		}
 	}
 
@@ -72,7 +71,7 @@ namespace xshazwar.processing.cpu.mutate {
          public static float[] sobel3_VY = {1f, 0f, -1f};
         public static float[] sobel3_VX = {1f, 2f, 1f};
         private static JobHandle ScheduleSeries(
-            NativeArray<float> src,
+            NativeSlice<float> src,
             int resolution,
             int kernelSize,
             NativeArray<float> kernelX,
@@ -80,16 +79,16 @@ namespace xshazwar.processing.cpu.mutate {
             float kernelFactor,
             JobHandle dependency
         ){
-            JobHandle first = GenericKernelJob<KernelTileMutation<KernelSampleXOperator>, RWTileData, KernelSampleXOperator>.ScheduleParallel(
+            JobHandle first = GenericKernelJob<KernelTileMutation<KernelSampleXOperator>, RWTileData>.ScheduleParallel(
                 src, resolution, kernelSize, kernelX, kernelFactor, dependency
             );
-            return GenericKernelJob<KernelTileMutation<KernelSampleZOperator>, RWTileData, KernelSampleZOperator>.ScheduleParallel(
+            return GenericKernelJob<KernelTileMutation<KernelSampleZOperator>, RWTileData>.ScheduleParallel(
                 src, resolution, kernelSize, kernelZ, kernelFactor, first
             );
         }
 
         private static JobHandle SchedulePL<T>(
-            NativeArray<float> src,
+            NativeSlice<float> src,
             int resolution,
             int kernelSize,
             NativeArray<float> kernelX,
@@ -97,25 +96,28 @@ namespace xshazwar.processing.cpu.mutate {
             float kernelFactor,
             JobHandle dependency
         ) where T: struct, IReduceTiles {
-            NativeArray<float> original = new NativeArray<float>(src, Allocator.TempJob);
-            JobHandle xPass = GenericKernelJob<KernelTileMutation<KernelSampleXOperator>, RWTileData, KernelSampleXOperator>.ScheduleParallel(
+            NativeArray<float> original = new NativeArray<float>(src.Length, Allocator.TempJob);
+            src.CopyTo(original);
+            JobHandle xPass = GenericKernelJob<KernelTileMutation<KernelSampleXOperator>, RWTileData>.ScheduleParallel(
                 src, resolution, kernelSize, kernelX, kernelFactor, dependency
             );
-            JobHandle zPass = GenericKernelJob<KernelTileMutation<KernelSampleZOperator>, RWTileData, KernelSampleZOperator>.ScheduleParallel(
+            JobHandle zPass = GenericKernelJob<KernelTileMutation<KernelSampleZOperator>, RWTileData>.ScheduleParallel(
                 original, resolution, kernelSize, kernelZ, kernelFactor, dependency
             );
             JobHandle allPass = JobHandle.CombineDependencies(xPass, zPass);
-            return ReductionJob<T, RWTileData, ReadOnlyTileData>.ScheduleParallel(
+            JobHandle reduce = ReductionJob<T, RWTileData, ReadTileData>.ScheduleParallel(
                 src, original, resolution, allPass
             );
+            return original.Dispose(reduce);
         }
 
         private static JobHandle ScheduleSobel2D(
-            NativeArray<float> src,
+            NativeSlice<float> src,
             int resolution,
             JobHandle dependency
         ){
-            NativeArray<float> original = new NativeArray<float>(src, Allocator.TempJob);
+            NativeArray<float> original = new NativeArray<float>(src.Length, Allocator.TempJob);
+            src.CopyTo(original);
             NativeArray<float> kbx_h = new NativeArray<float>(sobel3_HX, Allocator.TempJob);
             NativeArray<float> kby_h = new NativeArray<float>(sobel3_HY, Allocator.TempJob);
             NativeArray<float> kbx_v = new NativeArray<float>(sobel3_VX, Allocator.TempJob);
@@ -123,12 +125,18 @@ namespace xshazwar.processing.cpu.mutate {
             JobHandle horiz = SchedulePL<MultiplyTiles>(src, resolution, 3, kbx_h, kby_h, 1f, dependency);
             JobHandle vert = SchedulePL<MultiplyTiles>(original, resolution, 3, kbx_v, kby_v, 1f, dependency);
             JobHandle allPass = JobHandle.CombineDependencies(horiz, vert);
-            return ReductionJob<RootSumSquaresTiles, RWTileData, ReadOnlyTileData>.ScheduleParallel(
+            JobHandle reducePass =  ReductionJob<RootSumSquaresTiles, RWTileData, ReadTileData>.ScheduleParallel(
                 src, original, resolution, allPass
             );
+            // chain disposal of nativeArrays after job complete
+            return kby_v.Dispose(
+                kbx_v.Dispose(
+                    kby_h.Dispose(
+                        kbx_h.Dispose(
+                            original.Dispose(reducePass)))));
         }
 
-        public static JobHandle Schedule(NativeArray<float> src, KernelFilterType filter, int resolution, JobHandle dependency){
+        public static JobHandle Schedule(NativeSlice<float> src, KernelFilterType filter, int resolution, JobHandle dependency){
             float[] kernelBodyX = smooth3;
             float[] kernelBodyY = smooth3;
             float kernelFactor = smooth3Factor;
@@ -163,20 +171,26 @@ namespace xshazwar.processing.cpu.mutate {
             }
             NativeArray<float> kbx = new NativeArray<float>(kernelBodyX, Allocator.TempJob);
             NativeArray<float> kby = new NativeArray<float>(kernelBodyY, Allocator.TempJob);
+            JobHandle res;
 
             switch(filter){
                 case KernelFilterType.Sobel3Horizontal:
-                    // 
                 case KernelFilterType.Sobel3Vertical:
-                    // 
-                    return SchedulePL<MultiplyTiles>(src, resolution, kernelSize, kbx, kby, kernelFactor, dependency);
-
+                    res = SchedulePL<MultiplyTiles>(src, resolution, kernelSize, kbx, kby, kernelFactor, dependency);
+                    break;
+                default:
+                    res = ScheduleSeries(src, resolution, kernelSize, kbx, kby, kernelFactor, dependency);
+                    break;
             }
-            return ScheduleSeries(src, resolution, kernelSize, kbx, kby, kernelFactor, dependency);
+            return kbx.Dispose(
+                kby.Dispose(
+                    res
+            ));
+            
         }
     }
     public delegate JobHandle SeperableKernelFilterDelegate (
-        NativeArray<float> src,
+        NativeSlice<float> src,
         KernelFilterType filter,
         int resolution,
         JobHandle dependency

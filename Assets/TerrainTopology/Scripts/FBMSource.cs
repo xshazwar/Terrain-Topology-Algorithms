@@ -12,13 +12,27 @@ using Unity.Jobs;
 using xshazwar.processing.cpu.mutate;
 
 [RequireComponent(typeof(Texture2D))]
-public class FBMSource : MonoBehaviour //, IProvideTiles//, IUpdateImage
+public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
 {
-    
+    public enum FractalNoise {
+        Sin,
+        Perlin,
+        PeriodicPerlin,
+        Simplex,
+        RotatedSimplex,
+        Cellular
+    }
+
     static FractalJobDelegate[] jobs = {
-		FractalJob<FractalGenerator<PerlinGetter>, PerlinGetter, WriteTileData>.ScheduleParallel
+		FractalJob<FractalGenerator<SinGetter>, WriteTileData>.ScheduleParallel,
+        FractalJob<FractalGenerator<PerlinGetter>, WriteTileData>.ScheduleParallel,
+        FractalJob<FractalGenerator<PeriodicPerlinGetter>, WriteTileData>.ScheduleParallel,
+        FractalJob<FractalGenerator<SimplexGetter>, WriteTileData>.ScheduleParallel,
+        FractalJob<FractalGenerator<RotatedSimplexGetter>, WriteTileData>.ScheduleParallel,
+        FractalJob<FractalGenerator<CellularGetter>, WriteTileData>.ScheduleParallel
 	};
     public Renderer mRenderer;
+    public FractalNoise noiseType;
     public int resolution = 512;
 
     int tileSize = 1000;
@@ -26,13 +40,16 @@ public class FBMSource : MonoBehaviour //, IProvideTiles//, IUpdateImage
     [Range(0f, 1f)]
     public float hurst = 0f;
     
-    [Range(1, 12)]
+    [Range(1, 24)]
     public int octaves = 1;
 
     [Range(0, 1000)]
     public int xpos = 0;
     [Range(0, 1000)]
     public int zpos = 0;
+
+    [Range(5, 10000)]
+    public int noiseSize = 1000;
 
     Texture2D texture;
     NativeSlice<float> data;
@@ -53,8 +70,8 @@ public class FBMSource : MonoBehaviour //, IProvideTiles//, IUpdateImage
     }
 
     void GenerateTexture () {
-		jobHandle = jobs[0](
-            data, resolution, hurst, octaves, xpos, zpos, default);
+		jobHandle = jobs[(int)noiseType](
+            data, resolution, hurst, octaves, xpos, zpos, noiseSize, default);
     }
     void OnValidate () => enabled = true;
 
@@ -83,11 +100,11 @@ public class FBMSource : MonoBehaviour //, IProvideTiles//, IUpdateImage
         }
     }
 
-    // public void GetData(out NativeArray<float> d, out int res, out int ts){
-    //     d = this.data;
-    //     res = resolution;
-    //     ts = tileSize;
-    // }
+    public void GetData(out NativeSlice<float> d, out int res, out int ts){
+        d = this.data;
+        res = resolution;
+        ts = tileSize;
+    }
 
     public void UpdateImage(){
         texture.Apply();

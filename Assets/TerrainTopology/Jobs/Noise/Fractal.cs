@@ -14,13 +14,10 @@ namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
 
     [BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
-	public struct FractalJob<G, N, D> : IJobFor
+	public struct FractalJob<G, D> : IJobFor
         where G: struct, ITileSource, IFractalSettings
-        where N: struct, IMakeNoiseCoord
         where D : struct, ImSliceTileData, ISetTileData
-        {
-	
-        N noiseGenerator;
+    {
         G generator;
 
         [NativeDisableParallelForRestriction]
@@ -28,9 +25,17 @@ namespace xshazwar.processing.cpu.mutate {
 		D data;
 		public void Execute (int i) => generator.Execute(i, data);
 
-        public void SetGenerator(N ng){
-            noiseGenerator = ng;
+        public static float CalcFractalNormValue(float hurst, int octaves){
+            float G = math.exp2(-hurst);
+            float a = 1f;
+            float t = 0;
+            for (int i = 0; i < octaves; i++){
+                t += a * 1f;
+                a *= G;
+            }
+            return t;
         }
+
 		public static JobHandle ScheduleParallel (
 			NativeSlice<float> src,
             int resolution,
@@ -38,13 +43,16 @@ namespace xshazwar.processing.cpu.mutate {
             int octaves,
             int xpos,
             int zpos,
+            int noiseSize,
             JobHandle dependency
 		)
         {
-			var job = new FractalJob<G, N, D>();
+			var job = new FractalJob<G, D>();
 			job.generator.Resolution = resolution;
             job.generator.JobLength = resolution;
             job.generator.Hurst = hurst;
+            job.generator.NoiseSize = noiseSize;
+            job.generator.NormalizationValue = CalcFractalNormValue(hurst, octaves);
             job.generator.SetPosition(xpos, zpos);
             job.generator.OctaveCount = octaves;
 			job.data.Setup(
@@ -63,6 +71,7 @@ namespace xshazwar.processing.cpu.mutate {
         int octaves,
         int xpos,
         int zpos,
+        int noiseSize,
         JobHandle dependency
 	);
 
@@ -75,6 +84,10 @@ namespace xshazwar.processing.cpu.mutate {
         // [0, 1]
         public float Hurst {get; set;}
         public int OctaveCount {get; set;}
+
+        public float NormalizationValue {get; set;}
+
+        public int NoiseSize {get; set;}
         float2 Position;
         public N noiseGenerator;
 
@@ -84,18 +97,20 @@ namespace xshazwar.processing.cpu.mutate {
         }
 
         float NoiseValue(int x, int z){
+            float xi = ((float) x + Position.x) / (float) NoiseSize;
+            float zi = ((float) z + Position.y) / (float) NoiseSize;
             float G = math.exp2(-Hurst);
             float f = 1;
-            float a = 1;
+            float a = 0.9f;
             float t = 0;
             for (int i = 0; i < OctaveCount; i++){
-                float xV = f * (float) x + Position.x;
-                float zV = f * (float) z + Position.y;
+                float xV = f * xi;
+                float zV = f * zi;
                 t += a * noiseGenerator.NoiseValue(xV, zV);
                 f *= 2;
                 a *= G;
             }
-            return t;
+            return t / NormalizationValue;
         }
 
         
@@ -108,14 +123,50 @@ namespace xshazwar.processing.cpu.mutate {
 
     public struct PerlinGetter: IMakeNoiseCoord {
         public float NoiseValue(float x, float z){
-            
-            // float2 period = float2(100000, 100000);
             float2 coord = float2(x, z) ;
-            // return noise.pnoise(coord, period);
-            // return noise.cnoise(coord);
-            return noise.cnoise(coord / 1000);
-            // return math.unlerp(-1, 1,  noise.cnoise(coord));
+            return noise.cnoise(coord);
         }
     }
 
+    public struct PeriodicPerlinGetter: IMakeNoiseCoord {
+        public float NoiseValue(float x, float z){
+            
+            float2 period = float2(1010, 102);
+            float2 coord = float2(x, z) ;
+            return noise.psrnoise(coord, period);
+        }
+    }
+
+    public struct RotatedSimplexGetter: IMakeNoiseCoord {
+        public float NoiseValue(float x, float z){
+            
+            float2 period = float2(1010, 102);
+            float2 coord = float2(x, z) ;
+            return noise.psrnoise(coord, period, .62f);
+        }
+    }
+
+    public struct SinGetter: IMakeNoiseCoord {
+        public float NoiseValue(float x, float z){
+            
+            float2 coord = float2(x, z) ;
+            float2 v = 0.5f + (0.5f * math.sin(coord));
+            return v.x * v.y;
+        }
+    }
+
+    public struct SimplexGetter: IMakeNoiseCoord {
+        public float NoiseValue(float x, float z){
+            float2 coord = float2(x, z) ;
+            return noise.snoise(coord);
+        }
+    }
+
+    public struct CellularGetter: IMakeNoiseCoord {
+        public float NoiseValue(float x, float z){
+            float2 coord = float2(x, z) ;
+            float2 v = noise.cellular(coord);
+            return v.x * v.y;
+        }
+    }
 }

@@ -216,6 +216,7 @@ GameObject:
   m_Component:
   - component: {fileID: 447161932}
   - component: {fileID: 447161931}
+  - component: {fileID: 447161933}
   m_Layer: 0
   m_Name: Renderer
   m_TagString: Untagged
@@ -236,11 +237,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mRenderer: {fileID: 583384802}
-  resolution: 1024
+  noiseType: 2
+  resolution: 1000
   hurst: 0
   octaves: 1
   xpos: 0
   zpos: 0
+  noiseSize: 1000
   enabled: 1
 --- !u!4 &447161932
 Transform:
@@ -256,6 +259,21 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &447161933
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 447161930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82be2d07c3cd771b988e9150088d69a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  filter: 0
+  iterations: 8
+  enabled: 0
 --- !u!1 &583384800
 GameObject:
   m_ObjectHideFlags: 0

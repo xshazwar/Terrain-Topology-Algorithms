@@ -38,6 +38,8 @@ namespace xshazwar.processing.cpu.mutate {
     public interface IFractalSettings {
         public float Hurst {get; set;}
         public int OctaveCount {get; set;}
+        public int NoiseSize {get; set;}
+        public float NormalizationValue {get; set;}
     }
 
     public interface IMakeNoiseCoord {
@@ -48,7 +50,7 @@ namespace xshazwar.processing.cpu.mutate {
         // total resolution including margin
         int JobLength {get; set;}
         int Resolution {get; set;}
-        void Execute<T>(int i, T tile) where  T : struct, ImTileData, ISetTileData, IGetTileData; 
+        void Execute<T>(int i, T tile) where  T : struct, IRWTile; 
     }
 
     public interface IReduceTiles {
@@ -62,39 +64,13 @@ namespace xshazwar.processing.cpu.mutate {
                 where V: struct, ImTileData, IGetTileData; 
     }
 
-    public interface IKernelTiles<T>: IMutateTiles 
-        where T : struct, IKernelOperator
-        {
-        T kernelOp {get; set;}
-    }
-
     public interface IKernelData {
         public void Setup(float kernelFactor, int kernelSize, NativeArray<float> kernel);
     }
     
     public interface IKernelOperator {
-        public void ApplyKernel<T>(int x, int z, T tile) where  T : struct, ImTileData, IGetTileData, ISetTileData;
+        public void ApplyKernel<T>(int x, int z, T tile) where  T : struct, IRWTile;
     }
     public interface IMathTiles : IMutateTiles {}
-    public interface ImTileData {
-        void Setup(NativeArray<float> source, int resolution);
-        // public float GetData(int x, int z);
-        // void SetValue(int x, int z, float value);
-    }
-
-    public interface ImSliceTileData {
-        void Setup(NativeSlice<float> source, int resolution);
-        // public float GetData(int x, int z);
-        // void SetValue(int x, int z, float value);
-    }
-
-    public interface IGetTileData {
-        public float GetData(int x, int z);
-    }
-
-    public interface ISetTileData {
-        void SetValue(int x, int z, float value);
-
-    }
 
 }

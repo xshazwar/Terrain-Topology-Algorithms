@@ -13,7 +13,7 @@ namespace xshazwar.processing.cpu.mutate {
 	[BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
 	public struct MutationJob<G, D> : IJobFor
 		where G : struct, IMutateTiles
-		where D : struct, ImTileData, IGetTileData, ISetTileData {
+		where D : struct, IRWTile {
 
 		G generator;
 
@@ -32,9 +32,10 @@ namespace xshazwar.processing.cpu.mutate {
 			job.data.Setup(
 				src, resolution
 			);
-			return job.ScheduleParallel(
+			JobHandle handle = job.ScheduleParallel(
 				job.generator.JobLength, 1, dependency
 			);
+			return job.data.Dispose(handle);
 		}
 	}
 
