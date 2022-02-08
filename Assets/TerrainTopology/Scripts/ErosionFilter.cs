@@ -8,24 +8,10 @@ using Unity.Jobs;
 
 using xshazwar.processing.cpu.mutate;
 
-public class DataSource<T> : IProvideTiles, IUpdateImage where T: MonoBehaviour, IProvideTiles, IUpdateImage {
-    public T source;
-    
-    public void GetData(out NativeSlice<float> d, out int res, out int ts){
-        source.GetData(out d, out res, out ts);
-    }
-
-    public void UpdateImage(){
-        source.UpdateImage();
-    }
-}
-
 [RequireComponent(typeof(FBMSource))]
-public class KernelFilter : MonoBehaviour
+public class ErosionFilter : MonoBehaviour
 {
-    static SeperableKernelFilterDelegate job = SeparableKernelFilter.Schedule;
-
-    public KernelFilterType filter;
+    static ErosionKernelJobDelegate job = ErosionKernelJob.Schedule;
     public DataSource<FBMSource> dataSource;
 
     JobHandle jobHandle;
@@ -57,9 +43,9 @@ public class KernelFilter : MonoBehaviour
         for (int i = 0; i < iterations; i++){
             UnityEngine.Profiling.Profiler.BeginSample("Enqueue Step");
             if (i == 0){
-                handles[i] = job(src, filter, res, default);
+                handles[i] = job(src, res, default);
             }else{
-                handles[i] = job(src, filter, res, handles[i - 1]);
+                handles[i] = job(src, res, handles[i - 1]);
             }
             UnityEngine.Profiling.Profiler.EndSample();
             yield return null;   

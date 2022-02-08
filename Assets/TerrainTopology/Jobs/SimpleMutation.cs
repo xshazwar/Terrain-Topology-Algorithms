@@ -19,15 +19,15 @@ namespace xshazwar.processing.cpu.mutate {
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void DoOp<T, V>(int x, int z, T tileA, V tileB)
-                where T : struct, ImTileData, ISetTileData, IGetTileData
-                where V : struct, ImTileData, IGetTileData {
+                where T : struct, IRWTile
+                where V : struct, IReadOnlyTile {
             float val = tileA.GetData(x, z) * tileB.GetData(x, z);
             tileA.SetValue(x, z, val);
         }
 
         public void Execute<T, V>(int z, T tileA, V tileB)
-                where  T : struct, ImTileData, ISetTileData, IGetTileData
-                where V: struct, ImTileData, IGetTileData{
+                where  T : struct, IRWTile
+                where V: struct, IReadOnlyTile{
             for( int x = 0; x < Resolution; x++){
                 DoOp<T, V>(x, z, tileA, tileB);
             }
@@ -42,8 +42,8 @@ namespace xshazwar.processing.cpu.mutate {
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void DoOp<T, V>(int x, int z, T tileA, V tileB)
-                where T : struct, ImTileData, ISetTileData, IGetTileData
-                where V : struct, ImTileData, IGetTileData {
+                where T : struct, IRWTile
+                where V : struct, IReadOnlyTile {
             float a = tileA.GetData(x, z);
             float b = tileB.GetData(x, z);
             float val = sqrt((a * a) + (b * b));
@@ -51,8 +51,8 @@ namespace xshazwar.processing.cpu.mutate {
         }
 
         public void Execute<T, V>(int z, T tileA, V tileB)
-                where  T : struct, ImTileData, ISetTileData, IGetTileData
-                where V: struct, ImTileData, IGetTileData{
+                where  T : struct, IRWTile
+                where V: struct, IReadOnlyTile{
             for( int x = 0; x < Resolution; x++){
                 DoOp<T, V>(x, z, tileA, tileB);
             }

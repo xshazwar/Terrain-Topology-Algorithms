@@ -65,8 +65,6 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
         texture = new Texture2D(resolution, resolution, TextureFormat.RGBAFloat, false);
         mRenderer.material.mainTexture = texture;
         data =  new NativeSlice<float4>(texture.GetRawTextureData<float4>()).SliceWithStride<float>(8);
-        Debug.Log($"{data.Length} ==? {resolution * resolution}");
-        // renderTexture = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.RFloat);
     }
 
     void GenerateTexture () {
@@ -80,14 +78,12 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
     {
 		if (triggered){
             if (!jobHandle.IsCompleted){
-                Debug.Log("Generator Working");
                 return;
             }
             jobHandle.Complete();
             UnityEngine.Profiling.Profiler.BeginSample("Apply Texture");
             UpdateImage();
             UnityEngine.Profiling.Profiler.EndSample();
-            Debug.Log("Generator Complete");
             triggered = false;
         }
         
@@ -111,6 +107,5 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
     }
 
     public void OnDestroy(){
-        // data.Dispose();
     }
 }

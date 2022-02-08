@@ -41,12 +41,30 @@ namespace xshazwar.processing.cpu.mutate {
 				src, resolution
 			);
 			JobHandle handle = job.ScheduleParallel(
-				job.kernelPass.JobLength, 32, dependency
+				job.kernelPass.JobLength, 8, dependency
 			);
             return job.data.Dispose(handle);
 
 		}
 	}
+
+    public struct KernelTileMutation<O>: IMutateTiles, IKernelData
+        where O: struct, IKernelOperator, IKernelData
+        {
+
+        public int Resolution {get; set;}
+        public int JobLength {get; set;}
+        public O kernelOp;
+
+        public void Setup(float kernelFactor, int kernelSize, NativeArray<float> kernel){
+            kernelOp.Setup(kernelFactor, kernelSize, kernel);
+        }
+        public void Execute<T>(int z, T tile) where  T : struct, IRWTile {
+            for( int x = 0; x < Resolution; x++){
+                kernelOp.ApplyKernel<T>(x, z, tile);
+            }
+        }
+    }
 
     public enum KernelFilterType {
         Gauss5,
@@ -70,6 +88,8 @@ namespace xshazwar.processing.cpu.mutate {
         public static float[] sobel3_HY = {1f, 2f, 1f};
          public static float[] sobel3_VY = {1f, 0f, -1f};
         public static float[] sobel3_VX = {1f, 2f, 1f};
+        
+        // Jobs that can operate on the previous steps output
         private static JobHandle ScheduleSeries(
             NativeSlice<float> src,
             int resolution,
@@ -87,6 +107,8 @@ namespace xshazwar.processing.cpu.mutate {
             );
         }
 
+
+        // Jobs that can operate in parallel and require reduction
         private static JobHandle SchedulePL<T>(
             NativeSlice<float> src,
             int resolution,
@@ -182,6 +204,7 @@ namespace xshazwar.processing.cpu.mutate {
                     res = ScheduleSeries(src, resolution, kernelSize, kbx, kby, kernelFactor, dependency);
                     break;
             }
+            // Dispose of native containers on completion
             return kbx.Dispose(
                 kby.Dispose(
                     res
@@ -195,4 +218,38 @@ namespace xshazwar.processing.cpu.mutate {
         int resolution,
         JobHandle dependency
 	);
+
+    // KernelMinXOperator
+    public struct ErosionKernelJob{
+        private static JobHandle ScheduleSeries(
+            NativeSlice<float> src,
+            int resolution,
+            int kernelSize,
+            NativeArray<float> kernelX,
+            NativeArray<float> kernelZ,
+            float kernelFactor,
+            JobHandle dependency
+        ){
+            JobHandle first = GenericKernelJob<KernelTileMutation<KernelMinXOperator>, RWTileData>.ScheduleParallel(
+                src, resolution, kernelSize, kernelX, kernelFactor, dependency
+            );
+            return GenericKernelJob<KernelTileMutation<KernelMinZOperator>, RWTileData>.ScheduleParallel(
+                src, resolution, kernelSize, kernelZ, kernelFactor, first
+            );
+        }
+
+        public static JobHandle Schedule(NativeSlice<float> src, int resolution, JobHandle dependency){
+            NativeArray<float> kbx = new NativeArray<float>(SeparableKernelFilter.smooth3, Allocator.TempJob);
+            NativeArray<float> kby = new NativeArray<float>(SeparableKernelFilter.smooth3, Allocator.TempJob);
+            JobHandle res = ScheduleSeries(src, resolution, 3, kbx, kby, 1f, dependency);
+            // Dispose of native containers on completion
+            return kbx.Dispose(
+                kby.Dispose(
+                    res
+            ));
+        }
+    }
+
+
+    public delegate JobHandle ErosionKernelJobDelegate(NativeSlice<float> src, int resolution, JobHandle dependency);
 }

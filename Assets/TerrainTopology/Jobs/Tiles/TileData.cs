@@ -4,6 +4,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Burst;
 using UnityEngine;
 
 using static Unity.Mathematics.math;
@@ -13,10 +14,16 @@ namespace xshazwar.processing.cpu.mutate {
 
     public struct RWTileData: IRWTile{
 
+        [NoAlias]
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
         [ReadOnly]
-        NativeArray<float> src;
+        NativeArray<float> src_backing;
+        
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
+        [ReadOnly]
+        NativeSlice<float> src;
 
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
@@ -28,8 +35,17 @@ namespace xshazwar.processing.cpu.mutate {
             dst = source;
             // This can't be allocated with temp because some times it lives too long :-D
             // Call dispose after the Reads are complete
-            src = new NativeArray<float>(source.Length, Allocator.TempJob);
-            source.CopyTo(src);
+            src_backing = new NativeArray<float>(source.Length, Allocator.TempJob);
+            src = new NativeSlice<float>(src_backing);
+            src.CopyFrom(source);
+            resolution = resolution_;
+        }
+
+        public void SetupNoAlloc(NativeSlice<float> source, NativeSlice<float> holder, int resolution_){
+            dst = source;
+            // in this case we can avoid the alloc by passing in properly sized slice for reuse
+            src = holder;
+            src.CopyFrom(source);
             resolution = resolution_;
         }
         
@@ -52,11 +68,11 @@ namespace xshazwar.processing.cpu.mutate {
         }
 
         public JobHandle Dispose(JobHandle dep){
-            return src.Dispose(dep);
+            return src_backing.Dispose(dep);
         }
     }
 
-    public struct ReadTileData: ImTileData, IGetTileData{
+    public struct ReadTileData: IReadOnlyTile{
 
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
@@ -84,7 +100,7 @@ namespace xshazwar.processing.cpu.mutate {
         }
 
     }
-    public struct WriteTileData: ImSliceTileData, ISetTileData{
+    public struct WriteTileData: IWriteOnlyTile{
 
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]

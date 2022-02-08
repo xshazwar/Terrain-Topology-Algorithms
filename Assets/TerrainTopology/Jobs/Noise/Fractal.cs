@@ -16,7 +16,7 @@ namespace xshazwar.processing.cpu.mutate {
     [BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
 	public struct FractalJob<G, D> : IJobFor
         where G: struct, ITileSource, IFractalSettings
-        where D : struct, ImSliceTileData, ISetTileData
+        where D : struct, IWriteOnlyTile
     {
         G generator;
 
@@ -76,7 +76,7 @@ namespace xshazwar.processing.cpu.mutate {
 	);
 
     public struct FractalGenerator<N>: ITileSource, IFractalSettings
-        where N: IMakeNoiseCoord
+        where N: IMakeNoise
     {
         public int JobLength {get; set;}
         public int Resolution {get; set;}
@@ -114,21 +114,23 @@ namespace xshazwar.processing.cpu.mutate {
         }
 
         
-        public void Execute<T>(int z, T tile) where  T : struct, ImSliceTileData, ISetTileData {
+        public void Execute<T>(int z, T tile) where  T : struct, IWriteOnlyTile {
             for( int x = 0; x < Resolution; x++){
                 tile.SetValue(x, z, NoiseValue(x, z));
             }
         }
     }
 
-    public struct PerlinGetter: IMakeNoiseCoord {
+    public struct PerlinGetter: IMakeNoise {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float NoiseValue(float x, float z){
             float2 coord = float2(x, z) ;
             return noise.cnoise(coord);
         }
     }
 
-    public struct PeriodicPerlinGetter: IMakeNoiseCoord {
+    public struct PeriodicPerlinGetter: IMakeNoise {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float NoiseValue(float x, float z){
             
             float2 period = float2(1010, 102);
@@ -137,7 +139,8 @@ namespace xshazwar.processing.cpu.mutate {
         }
     }
 
-    public struct RotatedSimplexGetter: IMakeNoiseCoord {
+    public struct RotatedSimplexGetter: IMakeNoise {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float NoiseValue(float x, float z){
             
             float2 period = float2(1010, 102);
@@ -146,7 +149,8 @@ namespace xshazwar.processing.cpu.mutate {
         }
     }
 
-    public struct SinGetter: IMakeNoiseCoord {
+    public struct SinGetter: IMakeNoise {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float NoiseValue(float x, float z){
             
             float2 coord = float2(x, z) ;
@@ -155,14 +159,16 @@ namespace xshazwar.processing.cpu.mutate {
         }
     }
 
-    public struct SimplexGetter: IMakeNoiseCoord {
+    public struct SimplexGetter: IMakeNoise {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float NoiseValue(float x, float z){
             float2 coord = float2(x, z) ;
             return noise.snoise(coord);
         }
     }
 
-    public struct CellularGetter: IMakeNoiseCoord {
+    public struct CellularGetter: IMakeNoise {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float NoiseValue(float x, float z){
             float2 coord = float2(x, z) ;
             float2 v = noise.cellular(coord);

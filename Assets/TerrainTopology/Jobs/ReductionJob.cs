@@ -14,7 +14,7 @@ namespace xshazwar.processing.cpu.mutate {
 	public struct ReductionJob<G, DL, DR> : IJobFor
 		where G : struct, IReduceTiles
 		where DL : struct, IRWTile
-        where DR : struct, ImTileData, IGetTileData {
+        where DR : struct, IReadOnlyTile {
 
 		G generator;
 

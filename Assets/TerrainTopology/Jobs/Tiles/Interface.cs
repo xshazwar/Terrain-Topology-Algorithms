@@ -8,14 +8,6 @@ namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;    
     public interface ImTileData {
         void Setup(NativeSlice<float> source, int resolution);
-        // public float GetData(int x, int z);
-        // void SetValue(int x, int z, float value);
-    }
-
-    public interface ImSliceTileData {
-        void Setup(NativeSlice<float> source, int resolution);
-        // public float GetData(int x, int z);
-        // void SetValue(int x, int z, float value);
     }
 
     public interface IGetTileData {
@@ -26,11 +18,15 @@ namespace xshazwar.processing.cpu.mutate {
         void SetValue(int x, int z, float value);
     }
 
+    public interface ITileReuseableData {
+        public void SetupNoAlloc(NativeSlice<float> source, NativeSlice<float> holder, int resolution_);
+    }
+
     public interface ICleanUpTiles{
         public JobHandle Dispose(JobHandle dep);
     }
 
-    public interface IReadOnlyTile : IGetTileData, ImTileData{}
+    public interface IReadOnlyTile : ImTileData, IGetTileData{}
     public interface IWriteOnlyTile: ImTileData, ISetTileData{}
-    public interface IRWTile: ImTileData, IGetTileData, ISetTileData, ICleanUpTiles{}
+    public interface IRWTile: ImTileData, IGetTileData, ISetTileData, ICleanUpTiles, ITileReuseableData{}
 }
