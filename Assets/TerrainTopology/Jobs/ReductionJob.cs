@@ -34,11 +34,12 @@ namespace xshazwar.processing.cpu.mutate {
             int resolution,
             JobHandle dependency
 		) {
+			NativeArray<float> tmp = new NativeArray<float>(srcL.Length, Allocator.TempJob);
 			var job = new ReductionJob<G, DL, DR>();
 			job.generator.Resolution = resolution;
             job.generator.JobLength = resolution;
 			job.dataL.Setup(
-				srcL, resolution
+				srcL, tmp, resolution
 			);
             job.dataR.Setup(
 				srcR, resolution
@@ -46,7 +47,7 @@ namespace xshazwar.processing.cpu.mutate {
 			JobHandle handle = job.ScheduleParallel(
 				job.generator.JobLength, 1, dependency
 			);
-			return job.dataL.Dispose(handle);
+			return tmp.Dispose(handle);
 		}
 	}
 

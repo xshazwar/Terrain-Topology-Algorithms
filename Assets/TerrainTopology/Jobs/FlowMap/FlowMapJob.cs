@@ -11,18 +11,25 @@ namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
 
 	[BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
-	public struct FlowMapStepComputeFlow<F, D> : IJobFor
+	public struct FlowMapStepComputeFlow<F, RO, RW> : IJobFor
         where F : struct, IComputeFlowData
-		where D : struct, IReadOnlyTile
+		where RO : struct, IReadOnlyTile
+        where RW : struct, IRWTile
         {
 		F flowOperator;
 
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
         [ReadOnly]
-		D data;
+		RO height;
+        RO water;
+        RW flowN;
+        RW flowS;
+        RW flowE;
+        RW flowW;
 
-		public void Execute (int i) => flowOperator.Execute<D>(i, data);
+
+		public void Execute (int i) => flowOperator.Execute<RO, RW>(i, height, water, flowN, flowS, flowE, flowW);
 
 		public static JobHandle ScheduleParallel (
             // compute outflow this is RO
@@ -42,22 +49,30 @@ namespace xshazwar.processing.cpu.mutate {
             JobHandle dependency
 		)
         {
-            var job = new FlowMapStepComputeFlow<F, D>();
-			job.data.Setup(
+            var job = new FlowMapStepComputeFlow<F, RO, RW>();
+			job.height.Setup(
 				src, resolution
 			);
             job.flowOperator.Resolution = resolution;
             job.flowOperator.JobLength = resolution;
-            job.flowOperator.water.Setup(waterMap, resolution);
-            job.flowOperator.outN.SetupNoAlloc(flowMapN, flowMapN__buff, resolution);
-            job.flowOperator.outS.SetupNoAlloc(flowMapS, flowMapS__buff, resolution);
-            job.flowOperator.outE.SetupNoAlloc(flowMapE, flowMapE__buff, resolution);
-            job.flowOperator.outW.SetupNoAlloc(flowMapW, flowMapW__buff, resolution);
+
+            job.water.Setup(waterMap, resolution);
+
+            job.flowN.Setup(flowMapN, flowMapN__buff, resolution);
+            job.flowS.Setup(flowMapS, flowMapS__buff, resolution);
+            job.flowE.Setup(flowMapE, flowMapE__buff, resolution);
+            job.flowW.Setup(flowMapW, flowMapW__buff, resolution);
 
             // no temporary allocations, so no need to dispose
-			return job.ScheduleParallel(
-                job.flowOperator.JobLength, 8, dependency
+			JobHandle res = job.ScheduleParallel(
+                resolution, 1, dependency
 			);
+
+            return TileHelpers.SWAP_RWTILE(flowMapW, flowMapW__buff,
+                TileHelpers.SWAP_RWTILE(flowMapE, flowMapE__buff,
+                    TileHelpers.SWAP_RWTILE(flowMapS, flowMapS__buff,
+                        TileHelpers.SWAP_RWTILE(flowMapN, flowMapN__buff, res))));
+             
 		}
 	}
 
@@ -79,24 +94,30 @@ namespace xshazwar.processing.cpu.mutate {
         JobHandle dependency
     );
 
-    public struct FlowMapStepUpdateWater<F, D> : IJobFor
+    [BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
+    public struct FlowMapStepUpdateWater<F, RO, RW> : IJobFor
         where F : struct, IComputeWaterLevel
-		where D : struct, IReadOnlyTile
+		where RO : struct, IReadOnlyTile
+        where RW : struct, IRWTile
         {
 
 		F flowOperator;
-        int Resolution;
 	
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
+        RW water;
         [ReadOnly]
-		D data;
+        RO flowN;
+        [ReadOnly]
+        RO flowS;
+        [ReadOnly]
+        RO flowE;
+        [ReadOnly]
+        RO flowW;
 
-		public void Execute (int i) => flowOperator.Execute<D>(i, data);
+		public void Execute (int i) => flowOperator.Execute<RO, RW>(i, water, flowN, flowS, flowE, flowW);
 
-		public static JobHandle ScheduleParallel (
-            // compute outflow this is RO
-			NativeSlice<float> src,  
+		public static JobHandle ScheduleParallel ( 
             // compute outflow this is RO
             NativeSlice<float> waterMap,
             NativeSlice<float> waterMap__buff,
@@ -109,28 +130,25 @@ namespace xshazwar.processing.cpu.mutate {
             JobHandle dependency
 		)
         {
-            var job = new FlowMapStepUpdateWater<F, D>();
-			job.data.Setup(
-				src, resolution
-			);
+            var job = new FlowMapStepUpdateWater<F, RO, RW>();
+
             job.flowOperator.Resolution = resolution;
             job.flowOperator.JobLength = resolution;
-            job.flowOperator.water.SetupNoAlloc(waterMap, waterMap__buff, resolution);
+            job.water.Setup(waterMap, waterMap__buff, resolution);
 
-            job.flowOperator.outN.Setup(flowMapN, resolution);
-            job.flowOperator.outS.Setup(flowMapS, resolution);
-            job.flowOperator.outE.Setup(flowMapE, resolution);
-            job.flowOperator.outW.Setup(flowMapW, resolution);
+            job.flowN.Setup(flowMapN, resolution);
+            job.flowS.Setup(flowMapS, resolution);
+            job.flowE.Setup(flowMapE, resolution);
+            job.flowW.Setup(flowMapW, resolution);
 
             // no temporary allocations, so no need to dispose
-			return job.ScheduleParallel(
+			JobHandle res = job.ScheduleParallel(
                 job.flowOperator.JobLength, 8, dependency
 			);
+            return TileHelpers.SWAP_RWTILE(waterMap, waterMap__buff, res);
 		}
 	}
-
-    public delegate JobHandle FlowMapStepUpdateWaterDelegate(
-        NativeSlice<float> src,  
+    public delegate JobHandle FlowMapStepUpdateWaterDelegate( 
         // compute outflow this is RO
         NativeSlice<float> waterMap,
         NativeSlice<float> waterMap__buff,
@@ -143,20 +161,28 @@ namespace xshazwar.processing.cpu.mutate {
         JobHandle dependency
     );
 
-    public struct FlowMapWriteValues<F, D> : IJobFor
+    [BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
+    public struct FlowMapWriteValues<F, RO, WO> : IJobFor
         where F : struct, IWriteFlowMap
-		where D : struct, IWriteOnlyTile
+		where RO : struct, IReadOnlyTile
+        where WO : struct, IWriteOnlyTile
         {
 
 		F flowOperator;
-        int Resolution;
 	
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
         [WriteOnly]
-		D data;
-
-		public void Execute (int i) => flowOperator.Execute<D>(i, data);
+		WO height;
+        [ReadOnly]
+        RO flowN;
+        [ReadOnly]
+        RO flowS;
+        [ReadOnly]
+        RO flowE;
+        [ReadOnly]
+        RO flowW;
+		public void Execute (int i) => flowOperator.Execute<RO, WO>(i, height, flowN, flowS, flowE, flowW);
 
 		public static JobHandle ScheduleParallel (
             // compute outflow this is RO
@@ -170,27 +196,26 @@ namespace xshazwar.processing.cpu.mutate {
             JobHandle dependency
 		)
         {
-            var job = new FlowMapWriteValues<F, D>();
-			job.data.Setup(
+            var job = new FlowMapWriteValues<F, RO, WO>();
+			job.height.Setup(
 				src, resolution
 			);
             job.flowOperator.Resolution = resolution;
             job.flowOperator.JobLength = resolution;
-            job.flowOperator.outN.Setup(flowMapN, resolution);
-            job.flowOperator.outS.Setup(flowMapS, resolution);
-            job.flowOperator.outE.Setup(flowMapE, resolution);
-            job.flowOperator.outW.Setup(flowMapW, resolution);
+            job.flowN.Setup(flowMapN, resolution);
+            job.flowS.Setup(flowMapS, resolution);
+            job.flowE.Setup(flowMapE, resolution);
+            job.flowW.Setup(flowMapW, resolution);
 
-            // no temporary allocations, so no need to dispose
 			return job.ScheduleParallel(
                 job.flowOperator.JobLength, 8, dependency
 			);
+
 		}
 	}
 
     public delegate JobHandle FlowMapWriteValuesDelegate(
         NativeSlice<float> src,  
-        // compute outflow then these are RW
         NativeSlice<float> flowMapN,
         NativeSlice<float> flowMapS,
         NativeSlice<float> flowMapE,
@@ -198,4 +223,50 @@ namespace xshazwar.processing.cpu.mutate {
         int resolution,
         JobHandle dependency
     );
+
+    [BurstCompile(FloatPrecision.High, FloatMode.Fast, CompileSynchronously = true)]
+    public struct MapNormalizeValues<F, RW> : IJobFor
+        where F : struct, INormalizeMap
+        where RW: struct, IRWTile
+    {
+        F fn;
+        
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
+        RW data ;
+        [ReadOnly]
+        NativeArray<float> args;
+
+        public void Execute (int i) => fn.Execute<RW>(i, data, args);
+        public static JobHandle ScheduleParallel (
+            // compute outflow this is RO
+			NativeSlice<float> src,
+            int resolution,
+            JobHandle dependency
+		)
+        {
+            NativeArray<float> args_ = new NativeArray<float>(3, Allocator.TempJob);
+            NativeArray<float> buff = new NativeArray<float>(resolution * resolution, Allocator.TempJob);
+            NativeSlice<float> buffer = new NativeSlice<float>(buff);
+            var rng = new GetMapRangeJob();
+            JobHandle prev = rng.Schedule(src, args_, dependency, 0f);
+            var job = new MapNormalizeValues<F, RW>();
+            job.fn.Resolution = resolution;
+            job.fn.JobLength = resolution;
+            job.args = args_;
+            job.data.Setup(src, buffer, resolution);
+            JobHandle res = job.ScheduleParallel(
+                job.fn.JobLength, 8, prev
+			);
+            JobHandle handle = TileHelpers.SWAP_RWTILE(src, buffer, res);
+            return args_.Dispose(buff.Dispose(handle));
+        }
+
+    }
+
+    public delegate JobHandle MapNormalizeValuesDelegate(
+            NativeSlice<float> src,
+            int resolution,
+            JobHandle dependency);
+		
 }

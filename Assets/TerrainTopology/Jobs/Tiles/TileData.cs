@@ -12,13 +12,50 @@ using static Unity.Mathematics.math;
 namespace xshazwar.processing.cpu.mutate {
     using Unity.Mathematics;
 
-    public struct RWTileData: IRWTile{
+    public struct FlushWriteSlice : IJob {
+        NativeSlice<float> read;
+        NativeSlice<float> write;
 
-        [NoAlias]
-        [NativeDisableParallelForRestriction]
-        [NativeDisableContainerSafetyRestriction]
-        [ReadOnly]
-        NativeArray<float> src_backing;
+        public static JobHandle Schedule(NativeSlice<float> read_, NativeSlice<float> write_, JobHandle deps){
+            var job = new FlushWriteSlice();     
+            job.read = read_;
+            job.write = write_;
+            return job.Schedule(deps);
+        }
+
+        public void Execute(){
+            read.CopyFrom(write);
+        }
+    }
+
+    public delegate JobHandle FlushWriteSliceDelegate(NativeSlice<float> read_, NativeSlice<float> write_, JobHandle deps);
+
+    public struct SwapBuffers<T>: IJob {
+        T a;
+        T b;
+        
+        public static JobHandle Schedule(T a_, T b_, JobHandle deps){
+            var job = new SwapBuffers<T>();     
+            job.a = a_;
+            job.b = b_;
+            return job.Schedule(deps);
+        }
+
+        public void Execute(){
+            T tmp = a;
+            a = b;
+            b = tmp;
+        }
+    }
+
+    public delegate JobHandle SwapBuffersDelegate<T>(T a_, T b_, JobHandle deps);
+
+    static class TileHelpers {
+        public static FlushWriteSliceDelegate SWAP_RWTILE =  FlushWriteSlice.Schedule;
+    
+    }
+
+    public struct RWTileData: IRWTile{
         
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
@@ -31,21 +68,10 @@ namespace xshazwar.processing.cpu.mutate {
         NativeSlice<float> dst;
         int resolution;
 
-        public void Setup(NativeSlice<float> source, int resolution_){
-            dst = source;
-            // This can't be allocated with temp because some times it lives too long :-D
-            // Call dispose after the Reads are complete
-            src_backing = new NativeArray<float>(source.Length, Allocator.TempJob);
-            src = new NativeSlice<float>(src_backing);
-            src.CopyFrom(source);
-            resolution = resolution_;
-        }
-
-        public void SetupNoAlloc(NativeSlice<float> source, NativeSlice<float> holder, int resolution_){
-            dst = source;
+        public void Setup(NativeSlice<float> src_, NativeSlice<float> dst_, int resolution_){
+            dst = dst_;
             // in this case we can avoid the alloc by passing in properly sized slice for reuse
-            src = holder;
-            src.CopyFrom(source);
+            src = src_;
             resolution = resolution_;
         }
         
@@ -66,10 +92,6 @@ namespace xshazwar.processing.cpu.mutate {
         public void SetValue(int x, int z, float value){
             dst[getIdx(x,z)] = value;
         }
-
-        public JobHandle Dispose(JobHandle dep){
-            return src_backing.Dispose(dep);
-        }
     }
 
     public struct ReadTileData: IReadOnlyTile{
@@ -80,8 +102,8 @@ namespace xshazwar.processing.cpu.mutate {
         NativeSlice<float> src;
         int resolution;
 
-        public void Setup(NativeSlice<float> source, int resolution_){
-            src = source;
+        public void Setup(NativeSlice<float> src_, int resolution_){
+            src = src_;
             resolution = resolution_;
 
         }
@@ -108,8 +130,8 @@ namespace xshazwar.processing.cpu.mutate {
         NativeSlice<float> dst;
         int resolution;
 
-        public void Setup(NativeSlice<float> source, int resolution_){
-            dst = source;
+        public void Setup(NativeSlice<float> dst_, int resolution_){
+            dst = dst_;
             resolution = resolution_;
 
         }
@@ -117,7 +139,7 @@ namespace xshazwar.processing.cpu.mutate {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int getIdx(int x, int z){
             // shouldn't need to overflow at all
-            return (z * (resolution)) + x;  
+            return (z * resolution) + x;  
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

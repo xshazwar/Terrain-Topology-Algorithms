@@ -5,7 +5,11 @@ namespace xshazwar.processing.cpu.mutate {
         public void GetData(out NativeSlice<float> data, out int resolution, out int tileSize);
     }
 
-    public interface IUpdateImage {
-        public void UpdateImage();
+    public interface IUpdateImageChannel {
+        public void UpdateImageChannel();
+    }
+
+    public interface IUpdateAllChannels {
+        public void UpdateImageAllChannels();
     }
 }

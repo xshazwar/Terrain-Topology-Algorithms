@@ -12,22 +12,23 @@ using xshazwar.processing.cpu.mutate;
 [RequireComponent(typeof(FBMSource))]
 public class FlowMapFilter : MonoBehaviour
 {
-    static FlowMapStepComputeFlowDelegate flowStage =  FlowMapStepComputeFlow<ComputeFlowStep, ReadTileData>.ScheduleParallel;
-    static FlowMapStepUpdateWaterDelegate waterStage = FlowMapStepUpdateWater<UpdateWaterStep, ReadTileData>.ScheduleParallel;
-    static FlowMapWriteValuesDelegate finalStage = FlowMapWriteValues<CreateVelocityField, WriteTileData>.ScheduleParallel;
-    public DataSource<FBMSource> dataSource;
+    static FillArrayJobDelegate fillStage = FillArrayJob.ScheduleParallel;
+    static FlowMapStepComputeFlowDelegate flowStage =  FlowMapStepComputeFlow<ComputeFlowStep, ReadTileData, RWTileData>.ScheduleParallel;
+    static FlowMapStepUpdateWaterDelegate waterStage = FlowMapStepUpdateWater<UpdateWaterStep, ReadTileData, RWTileData>.ScheduleParallel;
+    static FlowMapWriteValuesDelegate writeStage = FlowMapWriteValues<CreateVelocityField, ReadTileData, WriteTileData>.ScheduleParallel;
+    static MapNormalizeValuesDelegate normStage = MapNormalizeValues<NormalizeMap, RWTileData>.ScheduleParallel;
+
+    public DataSourceSingleChannel<FBMSource> dataSource;
     
+    public const int READ = 0;
+    public const int WRITE = 1;
+
     bool arraysReady;
-    NativeArray<float> waterMap;
-    NativeArray<float> waterMap__buff;
-    NativeArray<float> flowMapN;
-    NativeArray<float> flowMapN__buff;
-    NativeArray<float> flowMapS;
-    NativeArray<float> flowMapS__buff;
-    NativeArray<float> flowMapE;
-    NativeArray<float> flowMapE__buff;
-    NativeArray<float> flowMapW;
-    NativeArray<float> flowMapW__buff;
+    NativeArray<float>[] waterMap;
+    NativeArray<float>[] flowMapN;
+    NativeArray<float>[] flowMapS;
+    NativeArray<float>[] flowMapE;
+    NativeArray<float>[] flowMapW;
 
     JobHandle jobHandle;
     
@@ -42,29 +43,33 @@ public class FlowMapFilter : MonoBehaviour
             return;
         }
         UnityEngine.Profiling.Profiler.BeginSample("Allocate Arrays");
-        float[] waterInit = new float[size];
-        Helpers.Fill<float>(waterInit, size, 0.0001f);
-        waterMap = new NativeArray<float>(waterInit, Allocator.Persistent);
-        waterMap__buff = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapN = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapN__buff = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapS = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapS__buff = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapE = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapE__buff = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapW = new NativeArray<float>(size, Allocator.Persistent);
-        flowMapW__buff = new NativeArray<float>(size, Allocator.Persistent);
+        waterMap[READ] = new NativeArray<float>(size, Allocator.Persistent);
+        waterMap[WRITE] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapN[READ] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapN[WRITE] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapS[READ] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapS[WRITE] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapE[READ] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapE[WRITE] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapW[READ] = new NativeArray<float>(size, Allocator.Persistent);
+        flowMapW[WRITE] = new NativeArray<float>(size, Allocator.Persistent);
         arraysReady = true;
         UnityEngine.Profiling.Profiler.EndSample();
+        Debug.Log("Arrays Ready");
     }
 
     void Start(){
-        dataSource = new DataSource<FBMSource>();
+        dataSource = new DataSourceSingleChannel<FBMSource>();
         dataSource.source = GetComponent<FBMSource>();
         triggered = false;
         enqueueFinished = true;
         arraysReady = false;
         iterations = 5;
+        waterMap = new NativeArray<float>[2];
+        flowMapN = new NativeArray<float>[2];
+        flowMapS = new NativeArray<float>[2];
+        flowMapE = new NativeArray<float>[2];
+        flowMapW = new NativeArray<float>[2];
     }
 
     public IEnumerator FilterSteps(){
@@ -72,58 +77,58 @@ public class FlowMapFilter : MonoBehaviour
         int res; int tileSize;
         UnityEngine.Profiling.Profiler.BeginSample("Get Upstream Handle");
         dataSource.GetData(out src, out res, out tileSize);
+        Debug.Log(res);
         UnityEngine.Profiling.Profiler.EndSample();
         InitArrays(res * res);
-        
+
         JobHandle[] handles = new JobHandle[iterations * 2];
         for (int i = 0; i < 2 * iterations; i += 2){
             UnityEngine.Profiling.Profiler.BeginSample("Enqueue Step");
             if (i == 0){
-                handles[i] = flowStage(
-                        src,  
-                        new NativeSlice<float>(waterMap),
-                        new NativeSlice<float>(flowMapN),
-                        new NativeSlice<float>(flowMapN__buff),
-                        new NativeSlice<float>(flowMapS),
-                        new NativeSlice<float>(flowMapS__buff),
-                        new NativeSlice<float>(flowMapE),
-                        new NativeSlice<float>(flowMapE__buff),
-                        new NativeSlice<float>(flowMapW),
-                        new NativeSlice<float>(flowMapW__buff),
+                JobHandle fillHandle = fillStage(waterMap[READ], res, 0.0001f, default);
+                handles[0] = flowStage(
+                        src,
+                        new NativeSlice<float>(waterMap[READ]),
+                        new NativeSlice<float>(flowMapN[READ]),
+                        new NativeSlice<float>(flowMapN[WRITE]),
+                        new NativeSlice<float>(flowMapS[READ]),
+                        new NativeSlice<float>(flowMapS[WRITE]),
+                        new NativeSlice<float>(flowMapE[READ]),
+                        new NativeSlice<float>(flowMapE[WRITE]),
+                        new NativeSlice<float>(flowMapW[READ]),
+                        new NativeSlice<float>(flowMapW[WRITE]),
                         res,
-                        default);
-                handles[i + 1]  = waterStage(
-                        src,  
-                        new NativeSlice<float>(waterMap),
-                        new NativeSlice<float>(waterMap__buff),
-                        new NativeSlice<float>(flowMapN),
-                        new NativeSlice<float>(flowMapS),
-                        new NativeSlice<float>(flowMapE),
-                        new NativeSlice<float>(flowMapW),
+                        fillHandle);
+                handles[1]  = waterStage(
+                        new NativeSlice<float>(waterMap[READ]),
+                        new NativeSlice<float>(waterMap[WRITE]),
+                        new NativeSlice<float>(flowMapN[READ]),
+                        new NativeSlice<float>(flowMapS[READ]),
+                        new NativeSlice<float>(flowMapE[READ]),
+                        new NativeSlice<float>(flowMapW[READ]),
                         res,
                         handles[i]);
             }else{
                 handles[i] = flowStage(
                         src,  
-                        new NativeSlice<float>(waterMap),
-                        new NativeSlice<float>(flowMapN),
-                        new NativeSlice<float>(flowMapN__buff),
-                        new NativeSlice<float>(flowMapS),
-                        new NativeSlice<float>(flowMapS__buff),
-                        new NativeSlice<float>(flowMapE),
-                        new NativeSlice<float>(flowMapE__buff),
-                        new NativeSlice<float>(flowMapW),
-                        new NativeSlice<float>(flowMapW__buff),
+                        new NativeSlice<float>(waterMap[READ]),
+                        new NativeSlice<float>(flowMapN[READ]),
+                        new NativeSlice<float>(flowMapN[WRITE]),
+                        new NativeSlice<float>(flowMapS[READ]),
+                        new NativeSlice<float>(flowMapS[WRITE]),
+                        new NativeSlice<float>(flowMapE[READ]),
+                        new NativeSlice<float>(flowMapE[WRITE]),
+                        new NativeSlice<float>(flowMapW[READ]),
+                        new NativeSlice<float>(flowMapW[WRITE]),
                         res,
                         handles[i - 1]);
                 handles[i + 1]  = waterStage(
-                        src,
-                        new NativeSlice<float>(waterMap),
-                        new NativeSlice<float>(waterMap__buff),
-                        new NativeSlice<float>(flowMapN),
-                        new NativeSlice<float>(flowMapS),
-                        new NativeSlice<float>(flowMapE),
-                        new NativeSlice<float>(flowMapW),
+                        new NativeSlice<float>(waterMap[READ]),
+                        new NativeSlice<float>(waterMap[WRITE]),
+                        new NativeSlice<float>(flowMapN[READ]),
+                        new NativeSlice<float>(flowMapS[READ]),
+                        new NativeSlice<float>(flowMapE[READ]),
+                        new NativeSlice<float>(flowMapW[READ]),
                         res,
                         handles[i]);
             }
@@ -131,14 +136,19 @@ public class FlowMapFilter : MonoBehaviour
             yield return null;   
         }
 
-        jobHandle = finalStage(
+        JobHandle writeHandle = writeStage(
                         src,
-                        new NativeSlice<float>(flowMapN),
-                        new NativeSlice<float>(flowMapS),
-                        new NativeSlice<float>(flowMapE),
-                        new NativeSlice<float>(flowMapW),
+                        new NativeSlice<float>(flowMapN[READ]),
+                        new NativeSlice<float>(flowMapS[READ]),
+                        new NativeSlice<float>(flowMapE[READ]),
+                        new NativeSlice<float>(flowMapW[READ]),
                         res,
-                        handles[iterations * 2 - 1]);
+                        handles[(iterations * 2) - 1]);
+        jobHandle = normStage(
+                        src,
+                        res,
+                        writeHandle
+        );
         enqueueFinished = true;
     }
     void Update()
@@ -152,8 +162,9 @@ public class FlowMapFilter : MonoBehaviour
             }
             UnityEngine.Profiling.Profiler.BeginSample("Apply Filter");
             jobHandle.Complete();
-            dataSource?.UpdateImage();
+            dataSource?.UpdateImageChannel();
             triggered = false;
+            DisposeArrays();
             UnityEngine.Profiling.Profiler.EndSample();
         }
         
@@ -168,16 +179,25 @@ public class FlowMapFilter : MonoBehaviour
         }
     }
 
+    public void DisposeArrays(){
+        waterMap[READ].Dispose();
+        waterMap[WRITE].Dispose();
+        flowMapN[READ].Dispose();
+        flowMapN[WRITE].Dispose();
+        flowMapS[READ].Dispose();
+        flowMapS[WRITE].Dispose();
+        flowMapE[READ].Dispose();
+        flowMapE[WRITE].Dispose();
+        flowMapW[READ].Dispose();
+        flowMapW[WRITE].Dispose();
+        arraysReady = false;
+    }
+
     public void OnDestroy(){
-        waterMap.Dispose();
-        waterMap__buff.Dispose();
-        flowMapN.Dispose();
-        flowMapN__buff.Dispose();
-        flowMapS.Dispose();
-        flowMapS__buff.Dispose();
-        flowMapE.Dispose();
-        flowMapE__buff.Dispose();
-        flowMapW.Dispose();
-        flowMapW__buff.Dispose();
+        if(!arraysReady){
+            return;
+        }
+        DisposeArrays();
+
     }
 }

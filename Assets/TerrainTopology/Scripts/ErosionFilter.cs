@@ -12,7 +12,7 @@ using xshazwar.processing.cpu.mutate;
 public class ErosionFilter : MonoBehaviour
 {
     static ErosionKernelJobDelegate job = ErosionKernelJob.Schedule;
-    public DataSource<FBMSource> dataSource;
+    public DataSourceSingleChannel<FBMSource> dataSource;
 
     JobHandle jobHandle;
     
@@ -25,7 +25,7 @@ public class ErosionFilter : MonoBehaviour
 
     // Start is called before the first frame update
     void Start(){
-        dataSource = new DataSource<FBMSource>();
+        dataSource = new DataSourceSingleChannel<FBMSource>();
         dataSource.source = GetComponent<FBMSource>();
         triggered = false;
         enqueueFinished = true;
@@ -64,7 +64,7 @@ public class ErosionFilter : MonoBehaviour
             }
             UnityEngine.Profiling.Profiler.BeginSample("Apply Filter");
             jobHandle.Complete();
-            dataSource?.UpdateImage();
+            dataSource?.UpdateImageChannel();
             triggered = false;
             UnityEngine.Profiling.Profiler.EndSample();
         }

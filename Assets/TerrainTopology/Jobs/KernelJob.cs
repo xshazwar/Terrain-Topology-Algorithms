@@ -26,6 +26,7 @@ namespace xshazwar.processing.cpu.mutate {
 
 		public static JobHandle ScheduleParallel (
 			NativeSlice<float> src,
+            NativeSlice<float> dst,
             int resolution,
             int kernelSize,
             NativeArray<float> kernelBody,
@@ -38,12 +39,12 @@ namespace xshazwar.processing.cpu.mutate {
             job.kernelPass.JobLength = resolution;
             job.kernelPass.Setup(kernelFactor, kernelSize, kernelBody);
 			job.data.Setup(
-				src, resolution
+				src, dst, resolution
 			);
 			JobHandle handle = job.ScheduleParallel(
 				job.kernelPass.JobLength, 8, dependency
 			);
-            return job.data.Dispose(handle);
+            return TileHelpers.SWAP_RWTILE(src, dst, handle);
 
 		}
 	}
@@ -99,12 +100,14 @@ namespace xshazwar.processing.cpu.mutate {
             float kernelFactor,
             JobHandle dependency
         ){
+            NativeArray<float> tmp = new NativeArray<float>(src.Length, Allocator.TempJob);
             JobHandle first = GenericKernelJob<KernelTileMutation<KernelSampleXOperator>, RWTileData>.ScheduleParallel(
-                src, resolution, kernelSize, kernelX, kernelFactor, dependency
+                src, tmp, resolution, kernelSize, kernelX, kernelFactor, dependency
             );
-            return GenericKernelJob<KernelTileMutation<KernelSampleZOperator>, RWTileData>.ScheduleParallel(
-                src, resolution, kernelSize, kernelZ, kernelFactor, first
+            JobHandle res = GenericKernelJob<KernelTileMutation<KernelSampleZOperator>, RWTileData>.ScheduleParallel(
+                src, tmp, resolution, kernelSize, kernelZ, kernelFactor, first
             );
+            return tmp.Dispose(res);
         }
 
 
@@ -119,18 +122,25 @@ namespace xshazwar.processing.cpu.mutate {
             JobHandle dependency
         ) where T: struct, IReduceTiles {
             NativeArray<float> original = new NativeArray<float>(src.Length, Allocator.TempJob);
-            src.CopyTo(original);
+            NativeArray<float> tmp0 = new NativeArray<float>(src.Length, Allocator.TempJob);
+            NativeArray<float> tmp1 = new NativeArray<float>(src.Length, Allocator.TempJob);
+            
+            NativeSlice<float> originalS = new NativeSlice<float>(original);
+            NativeSlice<float> tmp0s = new NativeSlice<float>(tmp0);
+            NativeSlice<float> tmp1s = new NativeSlice<float>(tmp1);
+
+            originalS.CopyFrom(src);
             JobHandle xPass = GenericKernelJob<KernelTileMutation<KernelSampleXOperator>, RWTileData>.ScheduleParallel(
-                src, resolution, kernelSize, kernelX, kernelFactor, dependency
+                src, tmp0s, resolution, kernelSize, kernelX, kernelFactor, dependency
             );
             JobHandle zPass = GenericKernelJob<KernelTileMutation<KernelSampleZOperator>, RWTileData>.ScheduleParallel(
-                original, resolution, kernelSize, kernelZ, kernelFactor, dependency
+                originalS, tmp1s, resolution, kernelSize, kernelZ, kernelFactor, dependency
             );
             JobHandle allPass = JobHandle.CombineDependencies(xPass, zPass);
             JobHandle reduce = ReductionJob<T, RWTileData, ReadTileData>.ScheduleParallel(
-                src, original, resolution, allPass
+                src, originalS, resolution, allPass
             );
-            return original.Dispose(reduce);
+            return tmp1.Dispose(tmp0.Dispose(original.Dispose(reduce)));
         }
 
         private static JobHandle ScheduleSobel2D(
@@ -230,12 +240,14 @@ namespace xshazwar.processing.cpu.mutate {
             float kernelFactor,
             JobHandle dependency
         ){
+            NativeArray<float> tmp = new NativeArray<float>(src.Length, Allocator.TempJob);
             JobHandle first = GenericKernelJob<KernelTileMutation<KernelMinXOperator>, RWTileData>.ScheduleParallel(
-                src, resolution, kernelSize, kernelX, kernelFactor, dependency
+                src, tmp, resolution, kernelSize, kernelX, kernelFactor, dependency
             );
-            return GenericKernelJob<KernelTileMutation<KernelMinZOperator>, RWTileData>.ScheduleParallel(
-                src, resolution, kernelSize, kernelZ, kernelFactor, first
+            JobHandle res = GenericKernelJob<KernelTileMutation<KernelMinZOperator>, RWTileData>.ScheduleParallel(
+                src, tmp, resolution, kernelSize, kernelZ, kernelFactor, first
             );
+            return tmp.Dispose(res);
         }
 
         public static JobHandle Schedule(NativeSlice<float> src, int resolution, JobHandle dependency){

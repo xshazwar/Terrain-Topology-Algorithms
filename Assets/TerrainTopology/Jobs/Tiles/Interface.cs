@@ -10,6 +10,10 @@ namespace xshazwar.processing.cpu.mutate {
         void Setup(NativeSlice<float> source, int resolution);
     }
 
+    public interface ImBufferedTileData {
+        void Setup(NativeSlice<float> source, NativeSlice<float> dst, int resolution);
+    }
+
     public interface IGetTileData {
         public float GetData(int x, int z);
     }
@@ -18,15 +22,11 @@ namespace xshazwar.processing.cpu.mutate {
         void SetValue(int x, int z, float value);
     }
 
-    public interface ITileReuseableData {
-        public void SetupNoAlloc(NativeSlice<float> source, NativeSlice<float> holder, int resolution_);
-    }
-
     public interface ICleanUpTiles{
         public JobHandle Dispose(JobHandle dep);
     }
 
     public interface IReadOnlyTile : ImTileData, IGetTileData{}
     public interface IWriteOnlyTile: ImTileData, ISetTileData{}
-    public interface IRWTile: ImTileData, IGetTileData, ISetTileData, ICleanUpTiles, ITileReuseableData{}
+    public interface IRWTile: ImBufferedTileData, IGetTileData, ISetTileData{}
 }

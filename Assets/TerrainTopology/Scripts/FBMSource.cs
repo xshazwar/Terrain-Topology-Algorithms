@@ -12,7 +12,7 @@ using Unity.Jobs;
 using xshazwar.processing.cpu.mutate;
 
 [RequireComponent(typeof(Texture2D))]
-public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
+public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImageChannel, IUpdateAllChannels
 {
     public enum FractalNoise {
         Sin,
@@ -31,6 +31,9 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
         FractalJob<FractalGenerator<RotatedSimplexGetter>, WriteTileData>.ScheduleParallel,
         FractalJob<FractalGenerator<CellularGetter>, WriteTileData>.ScheduleParallel
 	};
+
+    static MapNormalizeValuesDelegate normStage = MapNormalizeValues<NormalizeMap, RWTileData>.ScheduleParallel;
+ 
     public Renderer mRenderer;
     public FractalNoise noiseType;
     public int resolution = 512;
@@ -53,6 +56,8 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
 
     Texture2D texture;
     NativeSlice<float> data;
+    NativeSlice<float> red;
+    NativeSlice<float> green;
     JobHandle jobHandle;
 
     public bool enabled;
@@ -65,11 +70,19 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
         texture = new Texture2D(resolution, resolution, TextureFormat.RGBAFloat, false);
         mRenderer.material.mainTexture = texture;
         data =  new NativeSlice<float4>(texture.GetRawTextureData<float4>()).SliceWithStride<float>(8);
+        red =  new NativeSlice<float4>(texture.GetRawTextureData<float4>()).SliceWithStride<float>(0);
+        green =  new NativeSlice<float4>(texture.GetRawTextureData<float4>()).SliceWithStride<float>(4);
     }
 
     void GenerateTexture () {
 		jobHandle = jobs[(int)noiseType](
             data, resolution, hurst, octaves, xpos, zpos, noiseSize, default);
+        // we don't want to norm to the tile, needs to be globally normed by the generator
+        // jobHandle = normStage(
+        //     data,
+        //     resolution,
+        //     writeHandle
+        // );
     }
     void OnValidate () => enabled = true;
 
@@ -82,7 +95,8 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
             }
             jobHandle.Complete();
             UnityEngine.Profiling.Profiler.BeginSample("Apply Texture");
-            UpdateImage();
+            
+            UpdateImageAllChannels();
             UnityEngine.Profiling.Profiler.EndSample();
             triggered = false;
         }
@@ -102,7 +116,13 @@ public class FBMSource : MonoBehaviour, IProvideTiles, IUpdateImage
         ts = tileSize;
     }
 
-    public void UpdateImage(){
+    public void UpdateImageChannel(){
+        texture.Apply();
+    }
+
+    public void UpdateImageAllChannels(){
+        red.CopyFrom(data);
+        green.CopyFrom(data);
         texture.Apply();
     }
 

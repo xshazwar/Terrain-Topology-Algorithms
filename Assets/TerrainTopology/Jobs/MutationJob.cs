@@ -26,16 +26,17 @@ namespace xshazwar.processing.cpu.mutate {
 		public static JobHandle ScheduleParallel (
 			NativeArray<float> src, int resolution, Vector2 per, float rot, Vector2 offset, float zoom, JobHandle dependency
 		) {
+			NativeArray<float> tmp = new NativeArray<float>(src.Length, Allocator.TempJob);
 			var job = new MutationJob<G, D>();
 			job.generator.Resolution = resolution;
             job.generator.JobLength = resolution;
 			job.data.Setup(
-				src, resolution
+				src, tmp, resolution
 			);
 			JobHandle handle = job.ScheduleParallel(
 				job.generator.JobLength, 1, dependency
 			);
-			return job.data.Dispose(handle);
+			return tmp.Dispose(handle);
 		}
 	}
 

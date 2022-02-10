@@ -8,15 +8,27 @@ using Unity.Jobs;
 
 using xshazwar.processing.cpu.mutate;
 
-public class DataSource<T> : IProvideTiles, IUpdateImage where T: MonoBehaviour, IProvideTiles, IUpdateImage {
+public class DataSourceSingleChannel<T> : IProvideTiles, IUpdateImageChannel where T: MonoBehaviour, IProvideTiles, IUpdateImageChannel {
     public T source;
     
     public void GetData(out NativeSlice<float> d, out int res, out int ts){
         source.GetData(out d, out res, out ts);
     }
 
-    public void UpdateImage(){
-        source.UpdateImage();
+    public void UpdateImageChannel(){
+        source.UpdateImageChannel();
+    }
+}
+
+public class DataSourceMultiChannel<T> : IProvideTiles, IUpdateAllChannels where T: MonoBehaviour, IProvideTiles, IUpdateAllChannels {
+    public T source;
+    
+    public void GetData(out NativeSlice<float> d, out int res, out int ts){
+        source.GetData(out d, out res, out ts);
+    }
+
+    public void UpdateImageAllChannels(){
+        source.UpdateImageAllChannels();
     }
 }
 
@@ -26,7 +38,7 @@ public class KernelFilter : MonoBehaviour
     static SeperableKernelFilterDelegate job = SeparableKernelFilter.Schedule;
 
     public KernelFilterType filter;
-    public DataSource<FBMSource> dataSource;
+    public DataSourceMultiChannel<FBMSource> dataSource;
 
     JobHandle jobHandle;
     
@@ -39,7 +51,7 @@ public class KernelFilter : MonoBehaviour
 
     // Start is called before the first frame update
     void Start(){
-        dataSource = new DataSource<FBMSource>();
+        dataSource = new DataSourceMultiChannel<FBMSource>();
         dataSource.source = GetComponent<FBMSource>();
         triggered = false;
         enqueueFinished = true;
@@ -78,7 +90,7 @@ public class KernelFilter : MonoBehaviour
             }
             UnityEngine.Profiling.Profiler.BeginSample("Apply Filter");
             jobHandle.Complete();
-            dataSource?.UpdateImage();
+            dataSource?.UpdateImageAllChannels();
             triggered = false;
             UnityEngine.Profiling.Profiler.EndSample();
         }

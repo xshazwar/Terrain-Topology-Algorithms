@@ -62,34 +62,31 @@ namespace xshazwar.processing.cpu.mutate {
     public interface IMathTiles : IMutateTiles {}
 
     public interface IComputeFlowData: ICommonTileSettings {
-        ReadTileData water {get; set;}
-        RWTileData outN {get; set;}
-        RWTileData outS {get; set;}
-        RWTileData outE {get; set;}
-        RWTileData outW {get; set;}
-
-        void Execute<T>(int i, T tile) where  T : struct, IReadOnlyTile;
+        void Execute<RO, RW>(int i, RO height, RO water, RW flowN, RW flowS, RW flowE, RW flowW) 
+            where  RO : struct, IReadOnlyTile
+            where  RW : struct, IRWTile;
     }
 
    public interface IComputeWaterLevel: ICommonTileSettings {
-        RWTileData water {get; set;}
-        ReadTileData outN {get; set;}
-        ReadTileData outS {get; set;}
-        ReadTileData outE {get; set;}
-        ReadTileData outW {get; set;}
 
-        void Execute<T>(int i, T tile) where  T : struct, IReadOnlyTile;
+        void Execute<RO, RW>(int i, RW water, RO flowN, RO flowS, RO flowE, RO flowW) 
+            where  RO : struct, IReadOnlyTile
+            where  RW : struct, IRWTile;
     }
 
     
 
     public interface IWriteFlowMap: ICommonTileSettings {
-        ReadTileData outN {get; set;}
-        ReadTileData outS {get; set;}
-        ReadTileData outE {get; set;}
-        ReadTileData outW {get; set;}
 
-        void Execute<T>(int i, T tile) where  T : struct, IWriteOnlyTile;
+        void Execute<RO, WO>(int z, WO height, RO flowN, RO flowS, RO flowE, RO flowW) 
+            where  RO : struct, IReadOnlyTile
+            where  WO : struct, IWriteOnlyTile;
+    }
+
+    public interface INormalizeMap: ICommonTileSettings {
+
+        void Execute<RW>(int z, RW map, NativeArray<float> args) 
+            where  RW : struct, IRWTile;
     }
 
 }
